@@ -1,15 +1,11 @@
-// Tutorial: Radar
-// Destroy the enemy ships. Use your radar to find them.
-// Hint: Press 'g' in-game to show where your radar is looking.
-// Hint: Press 'n' to single-step.
-// Hint: Use the set_radar_heading() function to keep your radar pointed at a
-// target, or to search for a new one.
-//
-// Join the Discord at https://discord.gg/vYyu9EhkKH for Oort discussion and
-// tournament results.
+pub mod kinematics;
+
 use oort_api::prelude::*;
+use kinematics::kinematics::predict;
 
 const BULLET_SPEED: f64 = 1000.0; // m/s
+
+
 
 pub struct Ship {}
 
@@ -23,6 +19,7 @@ impl Ship {
         if let Some(contact) = scan() {
             accelerate(0.1 * (contact.position - position()));
             fire(0);
+            // predict(vel, acc, time)
         }
     }
 }
