@@ -22,11 +22,12 @@ pub mod kinematics {
     }
 
     pub fn predict_iterative(mut vel: Vec2, acc: Vec2, ticks: i32) -> Vec2 {
-        let pos_delta: Vec2 = Default::default();
-        for _ in 0..100 {
-            
+        let mut pos_delta: Vec2 = Default::default();
+        for _ in 0..ticks {
+            pos_delta += vel / 60.0;
+            vel += acc / 60.0;
         }
 
-        return Default::default();
+        return pos_delta;
     }
 }
