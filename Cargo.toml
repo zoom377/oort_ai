@@ -1,5 +1,6 @@
 [package]
 name = "oort_ai"
+build = "src\\build.rs"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,3 +8,6 @@ edition = "2021"
 
 [dependencies]
 oort_api = "0.77.0"
+
+[build-dependencies]
+rustsourcebundler = { git = "https://github.com/lpenz/rust-sourcebundler", rev = "fbc017eeb3aa5c53ee5f6d15aff4d7f9d567430b" }
