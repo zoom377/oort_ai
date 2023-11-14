@@ -2,7 +2,7 @@ pub mod kinematics {
     use std::default;
 
     use oort_api::prelude::*;
-    
+
     /*
     Equations of motion
     These are only accurate when acceleration is constant over the timespan.
@@ -29,5 +29,27 @@ pub mod kinematics {
         }
 
         return pos_delta;
+    }
+
+    //Frame of reference is relative to self pos + speed
+    pub fn predict_bullet_intercept(
+        enm_pos: Vec2,
+        enm_vel: Vec2,
+        enm_acc: Vec2,
+        blt_spd: f64,
+    ) -> Vec2 {
+        const ITERATIONS: i8 = 5;
+
+        let mut intercept: Vec2 = enm_pos;
+        let mut blt_time: f64 = intercept.length() / blt_spd;
+
+        let mut i = 0;
+        while i < ITERATIONS {
+            intercept = predict(enm_vel, enm_acc, blt_time);
+            blt_time = intercept.length() / blt_spd;
+            i += 1;
+        }
+
+        return intercept;
     }
 }
