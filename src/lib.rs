@@ -1,46 +1,99 @@
+pub mod f64_extensions;
+pub mod graphing;
 pub mod kinematics;
+pub mod vec_extensions;
 
-// use kinematics::kinematics::predict;
-// use crate::kinematics::kinematics::predict_iterative;
-use kinematics::kinematics::*;
+use std::{default, ops::Index};
+
+use graphing::Graph;
+use kinematics::*;
 use oort_api::prelude::*;
+use vec_extensions::*;
+use f64_extensions::*;
+// use crate::f64_extensions::F64Ex;
 
 const BULLET_SPEED: f64 = 1000.0; // m/s
 
+#[derive(Default)]
 pub struct Ship {
     tar_prev_vel: Vec2,
-    tick_rate: i32,
+    last_target_heading: f64,
+    graph: Graph,
 }
 
 impl Ship {
     pub fn new() -> Ship {
-        Ship {
-            tar_prev_vel: Default::default(),
-            tick_rate: (1.0 / TICK_LENGTH).round() as i32,
-        }
+        return Ship {
+            graph: Graph {
+                size: vec2(1000.0, 500.0),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
     }
 
     pub fn tick(&mut self) {
         let tar_acc = target_velocity() - self.tar_prev_vel;
-        let tar_pred = target() + predict(target_velocity(), tar_acc, 1.0);
-        let tar_pred_iter =
-            target() + predict_iterative(target_velocity(), tar_acc, self.tick_rate);
 
-        let tar_pred_intercept = target() + predict_bullet_intercept(
-            target() - position(),
-            target_velocity() - velocity(),
-            tar_acc,
-            BULLET_SPEED,
-        );
+        let tar_blt_intercept = target()
+            + predict_bullet_intercept(
+                target() - position(),
+                target_velocity() - velocity(),
+                tar_acc,
+                BULLET_SPEED,
+            );
 
-        let dot = tar_pred.normalize().dot(tar_pred_iter.normalize());
-        let delta = tar_pred.distance(tar_pred_iter);
+        let intercept_angle = tar_blt_intercept.angle();
+        self.track(intercept_angle);
 
-        draw_square(tar_pred, 50.0, 0xff0000);
-        draw_square(tar_pred_iter, 50.0, 0x00ff00);
-        draw_square(tar_pred_intercept, 50.0, 0x0000ff);
-        debug!("TICK RATE: {}", 1.0 / TICK_LENGTH);
-        debug!("dot: {}", dot);
-        debug!("delta: {}", delta);
+        // debug!("{}", (5.0).remap(2.0, 6.0, -1.0, 1.0));
+
+        draw_square(tar_blt_intercept, 50.0, 0x0000ff);
+        self.graph.add(angular_velocity() + 1.0);
+        // debug!("data:{}", self.graph.data.index(self.graph.data.len()-1).value);
+        self.graph.tick();
+    }
+
+    //Turns ship to track a moving target. Automatically calculates target velocity.
+    //Self frame of reference
+    fn track(&mut self, target_heading: f64) {
+        let angle_delta = angle_diff(heading(), target_heading);
+        //dx !
+        //t ?
+        //v0 !
+        //v !
+        //a !
+
+        //Rearranging to get critical angle from target at which we should start deccelerating
+        //v^2 = v0^2 + 2adx
+        //v^2 - v0^2 = 2adx
+        //(v^2 - v0^2) / 2a = dx
+        //(0 - v0^2) / 2a = dx
+        //-v0^2 / 2a = dx
+        let critical_deccel_angle =
+            get_critical_deccel_angle(angular_velocity(), max_angular_acceleration());
+        let mut turn: f64 = 0.0;
+        if (angle_delta < 0.0) {
+            turn = -1.0;
+        } else {
+            turn = 1.0;
+        }
+
+        if (angle_delta.abs() <= critical_deccel_angle) {
+            turn *= -1.0;
+        }
+
+        torque(turn * max_angular_acceleration() * 0.25);
+
+        let heading_vector = Vec2::rotate(vec2(1.0, 0.0), heading());
+        let l1 = heading_vector.rotate(critical_deccel_angle) * 500.0;
+        let l2 = heading_vector.rotate(-critical_deccel_angle) * 500.0;
+        // draw_line(position(), position() + l1, 0xffffff);
+        // draw_line(position(), position() + l2, 0xffffff);
+        // debug!("Tar angle: {}", target_heading);
+        // debug!("Crit angle: {}", critical_deccel_angle);
+        // debug!("Angular velocity: {}", angular_velocity());
+
+        self.last_target_heading = target_heading;
     }
 }
