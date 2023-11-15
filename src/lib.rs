@@ -49,7 +49,7 @@ impl Ship {
         // debug!("{}", (5.0).remap(2.0, 6.0, -1.0, 1.0));
 
         draw_square(tar_blt_intercept, 50.0, 0x0000ff);
-        self.graph.add(tar_acc.y);
+        self.graph.add(tar_blt_intercept.y);
         self.graph.tick();
     }
 

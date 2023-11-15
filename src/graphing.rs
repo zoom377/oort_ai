@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use crate::f64_extensions::F64Ex;
 use oort_api::prelude::*;
 
@@ -16,12 +18,14 @@ pub struct Graph {
     pub color: u32,
     pub data: Vec<Datum>,
     pub min_delta: f64,
+    pub enable_dynamic_min_delta: bool,
     pub auto_grow: bool,
     pub auto_shrink: bool,
 }
 
+//Doesn't work very well :(
 fn align_text(text: String, mut pos: Vec2, anchor: Vec2) -> Vec2 {
-    const CHAR_WIDTH: f64 = 50.0;
+    const CHAR_WIDTH: f64 = 15.0;
     const CHAR_HEIGHT: f64 = 25.0;
 
     for _ in text.chars() {
@@ -44,6 +48,7 @@ impl Default for Graph {
             color: 0xff0000,
             data: Vec::new(),
             min_delta: f64::EPSILON,
+            enable_dynamic_min_delta: true,
             auto_grow: true,
             auto_shrink: true,
         }
@@ -56,11 +61,16 @@ impl Graph {
     }
 
     pub fn add(&mut self, value: f64) {
+        let mut min_delta = self.min_delta;
+        if self.enable_dynamic_min_delta{
+            min_delta = (self.max - self.min) / 100.0;
+        }
+
         //Dont add if the difference from last datum is insignificant
         if self.data.len() > 0 {
             let last = self.data[self.data.len() - 1].value;
             let delta = value - last;
-            if delta.abs() < self.min_delta {
+            if delta.abs() < min_delta {
                 return;
             }
         }
@@ -72,8 +82,8 @@ impl Graph {
     }
 
     pub fn tick(&mut self) {
-        self.shrink_grow();
 
+        //Calculate visible boundaries of graph
         let left = self.position.x;
         let right = left + self.size.x;
         let bottom = self.position.y;
@@ -81,14 +91,20 @@ impl Graph {
 
         let top_left = vec2(left, top);
         let bottom_left = vec2(left, bottom);
-        let zero_height = (0.0).remap(self.min, self.max, bottom, top);
-
         let start_tick = current_tick() as i32 - (self.time_span / TICK_LENGTH).round() as i32;
 
-        // debug!("draw line from {} to {}", last_point, point);
-        debug!("self.position: {}", self.position);
-        debug!("self.size: {}", self.size);
-        debug!("self.timespan: {}", self.time_span);
+        //Pop invisible data points
+        for datum in self.data.iter().enumerate() {
+            if (datum.1.value as f64) >= start_tick as f64{
+                //Found first visible data point. Everything before must be invisible
+                // VecDeque::pop_back(&mut self);
+            }
+        }
+
+        self.shrink_grow();
+
+        let zero_height = (0.0).remap(self.min, self.max, bottom, top);
+        
         debug!("self.data.len(): {}", self.data.len());
 
         //Draw axes
@@ -105,16 +121,16 @@ impl Graph {
 
         //Draw labels
         draw_text!(
-            align_text(self.max.to_string(), top_left, vec2(0.5, 0.5)),
+            align_text(self.max.to_string(), top_left, vec2(1.0, 0.5)),
             self.color,
-            "{}",
+            "{:.2}",
             self.max
         );
 
         draw_text!(
-            align_text(self.min.to_string(), bottom_left, vec2(0.5, 0.5)),
+            align_text(self.min.to_string(), bottom_left, vec2(1.0, 0.5)),
             self.color,
-            "{}",
+            "{:.2}",
             self.min
         );
 
@@ -130,10 +146,10 @@ impl Graph {
                 align_text(
                     (0).to_string(),
                     vec2(left, bottom + zero_height),
-                    vec2(0.5, 0.5)
+                    vec2(1.0, 0.5)
                 ),
                 self.color,
-                "{}",
+                "{:.2}",
                 0
             );
         }
@@ -164,7 +180,7 @@ impl Graph {
             largest = largest.max(datum.value);
             smallest = smallest.min(datum.value);
         }
-        debug!("small: {}, large: {}", smallest, largest);
+        // debug!("small: {}, large: {}", smallest, largest);
 
         if self.auto_shrink {
             self.max = self.max.min(largest);
@@ -176,4 +192,11 @@ impl Graph {
             self.min = self.min.min(smallest);
         }
     }
+
+    // fn pop_invisible_datums(&mut self){
+    //     for datum in &self.data {
+    //         let x = remap(datum.value, )
+    //         if (datum.)
+    //     }
+    // }
 }
