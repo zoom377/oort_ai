@@ -16,7 +16,7 @@ pub struct Graph {
     pub max: f64,
     pub time_span: f64,
     pub color: u32,
-    pub data: Vec<Datum>,
+    pub data: VecDeque<Datum>,
     pub min_delta: f64,
     pub enable_dynamic_min_delta: bool,
     pub auto_grow: bool,
@@ -46,7 +46,7 @@ impl Default for Graph {
             max: 10.0,
             time_span: 10.0,
             color: 0xff0000,
-            data: Vec::new(),
+            data: VecDeque::new(),
             min_delta: f64::EPSILON,
             enable_dynamic_min_delta: true,
             auto_grow: true,
@@ -75,7 +75,7 @@ impl Graph {
             }
         }
 
-        self.data.push(Datum {
+        self.data.push_back(Datum {
             value: value,
             tick: current_tick(),
         });
@@ -93,12 +93,22 @@ impl Graph {
         let bottom_left = vec2(left, bottom);
         let start_tick = current_tick() as i32 - (self.time_span / TICK_LENGTH).round() as i32;
 
-        //Pop invisible data points
-        for datum in self.data.iter().enumerate() {
-            if (datum.1.value as f64) >= start_tick as f64{
+        // Pop invisible data points
+        let mut first_visible_tick = 0;
+        for pair in self.data.iter().enumerate() {
+            if (pair.1.tick as f64) >= (start_tick as f64){
+                debug!("{}, {}", pair.1.tick as f64, start_tick as f64);
                 //Found first visible data point. Everything before must be invisible
-                // VecDeque::pop_back(&mut self);
+                first_visible_tick = pair.1.tick;
+                break;
             }
+        }
+
+        while let Some(front) = self.data.front(){
+            if front.tick == first_visible_tick{
+                break;
+            }
+            self.data.pop_front();
         }
 
         self.shrink_grow();
