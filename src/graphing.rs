@@ -19,6 +19,7 @@ pub struct Graph {
     pub data: VecDeque<Datum>,
     pub min_delta: f64,
     pub enable_dynamic_min_delta: bool,
+    pub show_labels: bool,
     pub auto_grow: bool,
     pub auto_shrink: bool,
 }
@@ -42,13 +43,14 @@ impl Default for Graph {
             label: String::from("value"),
             position: vec2(0.0, 0.0),
             size: vec2(1000.0, 250.0),
-            min: -10.0,
-            max: 10.0,
-            time_span: 10.0,
+            min: 0.0,
+            max: 0.0,
+            time_span: 5.0,
             color: 0xff0000,
             data: VecDeque::new(),
             min_delta: f64::EPSILON,
             enable_dynamic_min_delta: true,
+            show_labels: true,
             auto_grow: true,
             auto_shrink: true,
         }
@@ -62,9 +64,13 @@ impl Graph {
 
     pub fn add(&mut self, value: f64) {
         let mut min_delta = self.min_delta;
-        if self.enable_dynamic_min_delta{
+        if self.enable_dynamic_min_delta {
             min_delta = (self.max - self.min) / 100.0;
         }
+
+        //Todo: Keep ALL data as it can't cost much.
+        //Add a seperate pass over the vector for drawing lines/filtering.
+        //30 seconds * 60 ticks per second = 1800 total ticks = 1800 total vec elements
 
         //Dont add if the difference from last datum is insignificant
         if self.data.len() > 0 {
@@ -82,7 +88,6 @@ impl Graph {
     }
 
     pub fn tick(&mut self) {
-
         //Calculate visible boundaries of graph
         let left = self.position.x;
         let right = left + self.size.x;
@@ -96,7 +101,7 @@ impl Graph {
         // Pop invisible data points
         let mut first_visible_tick = 0;
         for pair in self.data.iter().enumerate() {
-            if (pair.1.tick as f64) >= (start_tick as f64){
+            if (pair.1.tick as f64) >= (start_tick as f64) {
                 debug!("{}, {}", pair.1.tick as f64, start_tick as f64);
                 //Found first visible data point. Everything before must be invisible
                 first_visible_tick = pair.1.tick;
@@ -104,19 +109,42 @@ impl Graph {
             }
         }
 
-        while let Some(front) = self.data.front(){
-            if front.tick == first_visible_tick{
+        let mut last_pop: Option<Datum> = None;
+        while let Some(front) = self.data.front() {
+            if front.tick == first_visible_tick {
                 break;
             }
-            self.data.pop_front();
+            last_pop = self.data.pop_front();
+        }
+
+        if let Some(pop) = last_pop{
+            self.data.push_front(pop);
         }
 
         self.shrink_grow();
 
         let zero_height = (0.0).remap(self.min, self.max, bottom, top);
-        
+
         debug!("self.data.len(): {}", self.data.len());
 
+        
+        //Draw labels
+        if self.show_labels {
+            draw_text!(
+                align_text(self.max.to_string(), top_left, vec2(1.0, 0.5)),
+                self.color,
+                "{:.2}",
+                self.max
+            );
+            
+            draw_text!(
+                align_text(self.min.to_string(), bottom_left, vec2(1.0, 0.5)),
+                self.color,
+                "{:.2}",
+                self.min
+            );
+        }
+        
         //Draw axes
         draw_line(
             vec2(self.position.x, self.position.y),
@@ -129,38 +157,12 @@ impl Graph {
             0xffffff,
         );
 
-        //Draw labels
-        draw_text!(
-            align_text(self.max.to_string(), top_left, vec2(1.0, 0.5)),
-            self.color,
-            "{:.2}",
-            self.max
-        );
-
-        draw_text!(
-            align_text(self.min.to_string(), bottom_left, vec2(1.0, 0.5)),
-            self.color,
-            "{:.2}",
-            self.min
-        );
-
-        //Draw centre line and label
-        if (self.min <= 0.0 && self.max >= 0.0) {
+        //Draw zero line and label
+        if self.min < 0.0 && self.max > 0.0 {
             draw_line(
                 vec2(self.position.x, self.position.y + zero_height),
                 vec2(self.position.x + self.size.x, self.position.y + zero_height),
                 0xcccccc,
-            );
-
-            draw_text!(
-                align_text(
-                    (0).to_string(),
-                    vec2(left, bottom + zero_height),
-                    vec2(1.0, 0.5)
-                ),
-                self.color,
-                "{:.2}",
-                0
             );
         }
 
@@ -190,7 +192,6 @@ impl Graph {
             largest = largest.max(datum.value);
             smallest = smallest.min(datum.value);
         }
-        // debug!("small: {}, large: {}", smallest, largest);
 
         if self.auto_shrink {
             self.max = self.max.min(largest);
@@ -202,11 +203,4 @@ impl Graph {
             self.min = self.min.min(smallest);
         }
     }
-
-    // fn pop_invisible_datums(&mut self){
-    //     for datum in &self.data {
-    //         let x = remap(datum.value, )
-    //         if (datum.)
-    //     }
-    // }
 }

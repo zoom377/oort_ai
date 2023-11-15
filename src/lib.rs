@@ -24,8 +24,11 @@ impl Ship {
     pub fn new() -> Ship {
         return Ship {
             graph: Graph {
-                size: vec2(1000.0, 500.0),
-                min_delta: 0.1,
+                position: vec2(-1000.0, -1000.0),
+                size: vec2(2000.0, 2000.0),
+                min_delta: 0.05,
+                time_span: 5.0,
+                auto_shrink: false,
                 ..Default::default()
             },
             ..Default::default()
@@ -49,7 +52,7 @@ impl Ship {
         // debug!("{}", (5.0).remap(2.0, 6.0, -1.0, 1.0));
 
         draw_square(tar_blt_intercept, 50.0, 0x0000ff);
-        self.graph.add(tar_blt_intercept.y);
+        // self.graph.add(tar_blt_intercept.y);
         self.graph.tick();
     }
 
@@ -84,7 +87,7 @@ impl Ship {
             }
         }
 
-        // self.graph.add(angle_delta);
+        self.graph.add(angle_delta);
 
         torque(turn * max_angular_acceleration());
 
