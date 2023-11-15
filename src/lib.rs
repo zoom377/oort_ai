@@ -10,7 +10,6 @@ use kinematics::*;
 use oort_api::prelude::*;
 use vec_extensions::*;
 use f64_extensions::*;
-// use crate::f64_extensions::F64Ex;
 
 const BULLET_SPEED: f64 = 1000.0; // m/s
 
@@ -26,6 +25,7 @@ impl Ship {
         return Ship {
             graph: Graph {
                 size: vec2(1000.0, 500.0),
+                min_delta: 0.1,
                 ..Default::default()
             },
             ..Default::default()
@@ -49,8 +49,7 @@ impl Ship {
         // debug!("{}", (5.0).remap(2.0, 6.0, -1.0, 1.0));
 
         draw_square(tar_blt_intercept, 50.0, 0x0000ff);
-        self.graph.add(angular_velocity() + 1.0);
-        // debug!("data:{}", self.graph.data.index(self.graph.data.len()-1).value);
+        self.graph.add(tar_acc.y);
         self.graph.tick();
     }
 
@@ -73,17 +72,21 @@ impl Ship {
         let critical_deccel_angle =
             get_critical_deccel_angle(angular_velocity(), max_angular_acceleration());
         let mut turn: f64 = 0.0;
-        if (angle_delta < 0.0) {
+        if angle_delta < 0.0 {
             turn = -1.0;
+            if angle_delta.abs() > critical_deccel_angle {
+                turn *= -1.0;
+            }
         } else {
             turn = 1.0;
+            if angle_delta.abs() <= critical_deccel_angle {
+                turn *= -1.0;
+            }
         }
 
-        if (angle_delta.abs() <= critical_deccel_angle) {
-            turn *= -1.0;
-        }
+        // self.graph.add(angle_delta);
 
-        torque(turn * max_angular_acceleration() * 0.25);
+        torque(turn * max_angular_acceleration());
 
         let heading_vector = Vec2::rotate(vec2(1.0, 0.0), heading());
         let l1 = heading_vector.rotate(critical_deccel_angle) * 500.0;
@@ -96,4 +99,5 @@ impl Ship {
 
         self.last_target_heading = target_heading;
     }
+
 }
