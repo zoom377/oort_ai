@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::f64_extensions::F64Ex;
 use oort_api::prelude::{maths_rs::powf, *};
@@ -142,9 +142,25 @@ impl Graph {
         }
 
         //Draw curve
+        //Using Douglas-Puecker algo to reduce lines drawn
+        let epsilon = 1.0;
+        let mut critical_point_indices = HashSet::<usize>::new();
+        let mut stack = VecDeque::<(usize, usize)>::new();
+
+        stack.push_back((0, self.data.len() - 1));
+        critical_point_indices.insert(0);
+        critical_point_indices.insert(self.data.len() - 1);
+
+        while stack.front().is_some() {
+            let current = stack.pop_front().unwrap();
+            let line_start = &self.data[current.0];
+            let line_end = &self.data[current.1];
+        }
+
+        // for datum in &self.data {}
+
         let mut is_first_point = true;
         let mut last_point: Vec2 = Default::default();
-
         for datum in &self.data {
             let x =
                 f64::from(datum.tick).remap(start_tick as f64, current_tick() as f64, left, right);
@@ -159,11 +175,6 @@ impl Graph {
                 last_point = point;
             }
         }
-    }
-
-    fn point_distance_to_line(p: Vec2, l1: Vec2, l2: Vec2) -> f64 {
-        return ((l2.x - l1.x) * (l1.y - p.y) - (l1.x - p.x) * (l2.y - l1.y))
-            / f64::sqrt(f64::powf(l2.x - l1.x, 2.0) + f64::powf(l2.y - l1.y, 2.0));
     }
 
     fn shrink_grow(&mut self) {
@@ -183,5 +194,35 @@ impl Graph {
             self.max = self.max.max(largest);
             self.min = self.min.min(smallest);
         }
+    }
+
+    fn get_datum_world_position(
+        datum: Datum,
+        graph_pos: Vec2,
+        graph_size: Vec2,
+        graph_timespan: f64,
+        graph_min: f64,
+        graph_max: f64,
+    ) -> Vec2 {
+        let start_tick = current_tick() as i32 - (graph_timespan / TICK_LENGTH).round() as i32;
+        return vec2(
+            (datum.tick as f64).remap(
+                start_tick as f64,
+                current_tick() as f64,
+                graph_pos.x,
+                graph_pos.x + graph_size.x,
+            ),
+            datum.value.remap(
+                graph_min,
+                graph_max,
+                graph_pos.y,
+                graph_pos.y + graph_size.y,
+            ),
+        );
+    }
+
+    fn point_distance_to_line(p: Vec2, l1: Vec2, l2: Vec2) -> f64 {
+        return ((l2.x - l1.x) * (l1.y - p.y) - (l1.x - p.x) * (l2.y - l1.y))
+            / f64::sqrt(f64::powf(l2.x - l1.x, 2.0) + f64::powf(l2.y - l1.y, 2.0));
     }
 }
