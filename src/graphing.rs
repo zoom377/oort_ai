@@ -132,12 +132,12 @@ impl Graph {
             return;
         }
 
-        let epsilon = self.get_epsilon();
+        let epsilon_squared = self.get_epsilon_squared();
         let visible_range = self.get_visible_indices_range();
         let mut critical_points_indices = HashSet::<usize>::new();
         let mut stack = VecDeque::<(usize, usize)>::new();
         debug!("Visible range: [{}..{}]", visible_range.0, visible_range.1);
-        debug!("Epsilon: {}", epsilon);
+        debug!("Epsilon^2: {}", epsilon_squared);
 
         stack.push_back(visible_range);
         critical_points_indices.insert(0);
@@ -161,8 +161,11 @@ impl Graph {
             //Find furthest point from current line
             for index in current.0 + 1..current.1 - 1 {
                 let datum_world_position = self.get_datum_world_position(&self.data[index]);
-                let distance_from_line =
-                    Graph::point_distance_to_line(datum_world_position, line_start, line_end);
+                let distance_from_line = Graph::point_distance_to_line_squared(
+                    datum_world_position,
+                    line_start,
+                    line_end,
+                );
                 calculations += 1;
                 if distance_from_line > largest_distance {
                     largest_index = index;
@@ -171,7 +174,7 @@ impl Graph {
             }
 
             //Subdivide line if a point exceeding epsilon was found
-            if largest_distance >= epsilon {
+            if largest_distance >= epsilon_squared {
                 critical_points_indices.insert(largest_index);
                 stack.push_back((current.0, largest_index));
                 stack.push_back((largest_index, current.1));
@@ -257,10 +260,19 @@ impl Graph {
 
     fn point_distance_to_line(p: Vec2, l1: Vec2, l2: Vec2) -> f64 {
         return ((l2.x - l1.x) * (l1.y - p.y) - (l1.x - p.x) * (l2.y - l1.y))
-            / f64::sqrt(f64::powf(l2.x - l1.x, 2.0) + f64::powf(l2.y - l1.y, 2.0));
+            / f64::sqrt((l2.x - l1.x).powf(2.0) + (l2.y - l1.y).powf(2.0));
     }
 
-    fn get_epsilon(&self) -> f64 {
-        return (self.size.x.powf(2.0) + self.size.y.powf(2.0)).sqrt() * self.line_quality;
+    fn point_distance_to_line_squared(p: Vec2, l1: Vec2, l2: Vec2) -> f64 {
+        return ((l2.x - l1.x) * (l1.y - p.y) - (l1.x - p.x) * (l2.y - l1.y)).powf(2.0)
+            / ((l2.x - l1.x).powf(2.0) + (l2.y - l1.y).powf(2.0));
+
+        //distance to line = ((l2.x - l1.x) * (l1.y - p.y) - (l1.x - p.x) * (l2.y - l1.y)) / f64::sqrt(f64::powf(l2.x - l1.x, 2.0) + f64::powf(l2.y - l1.y, 2.0))
+        //distance to line^2 * f64::powf(l2.x - l1.x, 2.0) + f64::powf(l2.y - l1.y, 2.0) = ((l2.x - l1.x) * (l1.y - p.y) - (l1.x - p.x) * (l2.y - l1.y))^2
+        //distance to line^2 = ((l2.x - l1.x) * (l1.y - p.y) - (l1.x - p.x) * (l2.y - l1.y))^2 / f64::powf(l2.x - l1.x, 2.0) + f64::powf(l2.y - l1.y, 2.0)
+    }
+
+    fn get_epsilon_squared(&self) -> f64 {
+        return (self.size.x.powf(2.0) + self.size.y.powf(2.0)) * self.line_quality;
     }
 }
