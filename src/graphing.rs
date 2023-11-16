@@ -9,7 +9,6 @@ pub struct Datum {
 }
 
 pub struct Graph {
-    pub label: String,
     pub position: Vec2,
     pub size: Vec2,
     pub min: f64,
@@ -24,23 +23,9 @@ pub struct Graph {
     pub auto_shrink: bool,
 }
 
-//Doesn't work very well :(
-fn align_text(text: String, mut pos: Vec2, anchor: Vec2) -> Vec2 {
-    const CHAR_WIDTH: f64 = 15.0;
-    const CHAR_HEIGHT: f64 = 25.0;
-
-    for _ in text.chars() {
-        pos.x -= CHAR_WIDTH * anchor.x;
-    }
-    pos.y += CHAR_HEIGHT * (1.0 - anchor.y);
-
-    return pos;
-}
-
 impl Default for Graph {
     fn default() -> Self {
         Self {
-            label: String::from("value"),
             position: vec2(0.0, 0.0),
             size: vec2(1000.0, 250.0),
             min: 0.0,
@@ -117,7 +102,7 @@ impl Graph {
             last_pop = self.data.pop_front();
         }
 
-        if let Some(pop) = last_pop{
+        if let Some(pop) = last_pop {
             self.data.push_front(pop);
         }
 
@@ -127,24 +112,12 @@ impl Graph {
 
         debug!("self.data.len(): {}", self.data.len());
 
-        
         //Draw labels
         if self.show_labels {
-            draw_text!(
-                align_text(self.max.to_string(), top_left, vec2(1.0, 0.5)),
-                self.color,
-                "{:.2}",
-                self.max
-            );
-            
-            draw_text!(
-                align_text(self.min.to_string(), bottom_left, vec2(1.0, 0.5)),
-                self.color,
-                "{:.2}",
-                self.min
-            );
+            draw_text!(top_left, self.color, "{:.2}", self.max);
+            draw_text!(bottom_left, self.color, "{:.2}", self.min);
         }
-        
+
         //Draw axes
         draw_line(
             vec2(self.position.x, self.position.y),
@@ -166,6 +139,8 @@ impl Graph {
             );
         }
 
+
+        //Draw curve
         let mut is_first_point = true;
         let mut last_point: Vec2 = Default::default();
 
@@ -184,6 +159,7 @@ impl Graph {
             }
         }
     }
+
 
     fn shrink_grow(&mut self) {
         let mut largest = f64::MIN;
