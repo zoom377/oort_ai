@@ -1,16 +1,7 @@
-use std::collections::{HashSet, VecDeque};
+use std::collections::VecDeque;
 
 use crate::f64_extensions::F64Ex;
-use oort_api::prelude::{maths_rs::powf, *};
-
-fn log_time(label: String) {
-    static mut LAST_TIME: f64 = 0.0;
-    unsafe {
-        let duration = current_time() - LAST_TIME;
-        debug!("{}: {:.2}ms", label, duration * 1000.0);
-        LAST_TIME = current_time();
-    }
-}
+use oort_api::prelude::{*};
 
 pub struct Datum {
     pub value: f64,
@@ -40,7 +31,7 @@ impl Default for Graph {
             max: 0.0,
             timespan: 5.0,
             color: 0xff0000,
-            epsilon_squared: 10000.0,
+            epsilon_squared: 100.0,
             show_labels: true,
             auto_grow: true,
             auto_shrink: true,
@@ -79,22 +70,11 @@ impl Graph {
     }
 
     pub fn tick(&mut self) {
-        //Calculate visible boundaries of graph
-        let left = self.position.x;
-        let right = left + self.size.x;
-        let bottom = self.position.y;
-        let top = bottom + self.size.y;
-
-        let top_left = vec2(left, top);
-        let bottom_left = vec2(left, bottom);
-        let start_tick = current_tick() as i32 - (self.timespan / TICK_LENGTH).round() as i32;
-
         // Pop invisible data points
         {
             let mut first_visible_tick = 0;
             for pair in self.data.iter().enumerate() {
-                if (pair.1.tick as f64) >= (start_tick as f64) {
-                    // debug!("{}, {}", pair.1.tick as f64, start_tick as f64);
+                if (pair.1.tick as f64) >= self.get_start_tick() as f64 {
                     //Found first visible data point. Everything before must be invisible
                     first_visible_tick = pair.1.tick;
                     break;
@@ -115,49 +95,15 @@ impl Graph {
         }
 
         self.shrink_grow();
+        self.draw_axes();
+        self.draw_labels();
+        self.draw_curve();
 
-        //Draw labels
-        if self.show_labels {
-            draw_text!(top_left, self.color, "{:.2}", self.max);
-            draw_text!(bottom_left, self.color, "{:.2}", self.min);
-        }
-
-        //Draw axes
-        draw_line(
-            vec2(self.position.x, self.position.y),
-            vec2(self.position.x + self.size.x, self.position.y),
-            0xffffff,
-        );
-        draw_line(
-            vec2(self.position.x, self.position.y),
-            vec2(self.position.x, self.position.y + self.size.y),
-            0xffffff,
-        );
-
-        //Draw zero line and label
-        if self.min < 0.0 && self.max > 0.0 {
-            draw_line(
-                self.get_datum_world_position(&Datum {
-                    value: 0.0,
-                    tick: start_tick,
-                }),
-                self.get_datum_world_position(&Datum {
-                    value: 0.0,
-                    tick: current_tick() as i32,
-                }),
-                0xcccccc,
-            );
-        }
-
-        let visible_range = self.get_visible_indices_range();
-        
         debug!("Data points: {}", self.data.len());
-        // debug!("Critical data points: {}", critical_points_indices.len());
-        // debug!("Point-line distance calculations: {}", calculations);
-        // debug!("Loops: {}", loops);
-        // debug!("Visible range: {},{}", visible_range.0, visible_range.1);
+    }
 
-        //Draw curve
+    fn draw_curve(&self) {
+        let visible_range = self.get_visible_indices_range();
         let mut is_first_point = true;
         let mut last_point: Vec2 = Default::default();
         let mut lines_drawn = 0;
@@ -173,6 +119,70 @@ impl Graph {
             last_point = point;
         }
         debug!("Lines drawn: {}", lines_drawn);
+    }
+
+    fn draw_labels(&self) {
+        if self.show_labels {
+            draw_text!(
+                self.get_datum_world_position(&Datum {
+                    value: self.max,
+                    tick: self.get_start_tick()
+                }),
+                self.color,
+                "{:.2}",
+                self.max
+            );
+            draw_text!(
+                self.get_datum_world_position(&Datum {
+                    value: self.min,
+                    tick: self.get_start_tick()
+                }),
+                self.color,
+                "{:.2}",
+                self.min
+            );
+        }
+
+        //Draw zero line and label
+        if self.min < 0.0 && self.max > 0.0 {
+            draw_line(
+                self.get_datum_world_position(&Datum {
+                    value: 0.0,
+                    tick: self.get_start_tick(),
+                }),
+                self.get_datum_world_position(&Datum {
+                    value: 0.0,
+                    tick: current_tick() as i32,
+                }),
+                0xcccccc,
+            );
+        }
+    }
+
+    fn draw_axes(&self) {
+        //Draw axes
+        draw_line(
+            self.get_datum_world_position(&Datum {
+                value: self.min,
+                tick: self.get_start_tick(),
+            }),
+            self.get_datum_world_position(&Datum {
+                value: self.min,
+                tick: current_tick() as i32,
+            }),
+            0xffffff,
+        );
+        draw_line(
+            self.get_datum_world_position(&Datum {
+                value: self.min,
+                tick: self.get_start_tick(),
+            }),
+            self.get_datum_world_position(&Datum {
+                value: self.max,
+                tick: self.get_start_tick(),
+            }),
+            0xffffff,
+        );
     }
 
     fn shrink_grow(&mut self) {
@@ -233,13 +243,5 @@ impl Graph {
     fn point_distance_to_line_squared(p: Vec2, l1: Vec2, l2: Vec2) -> f64 {
         return ((l2.x - l1.x) * (l1.y - p.y) - (l1.x - p.x) * (l2.y - l1.y)).powf(2.0)
             / ((l2.x - l1.x).powf(2.0) + (l2.y - l1.y).powf(2.0));
-
-        //distance to line = ((l2.x - l1.x) * (l1.y - p.y) - (l1.x - p.x) * (l2.y - l1.y)) / f64::sqrt(f64::powf(l2.x - l1.x, 2.0) + f64::powf(l2.y - l1.y, 2.0))
-        //distance to line^2 * f64::powf(l2.x - l1.x, 2.0) + f64::powf(l2.y - l1.y, 2.0) = ((l2.x - l1.x) * (l1.y - p.y) - (l1.x - p.x) * (l2.y - l1.y))^2
-        //distance to line^2 = ((l2.x - l1.x) * (l1.y - p.y) - (l1.x - p.x) * (l2.y - l1.y))^2 / f64::powf(l2.x - l1.x, 2.0) + f64::powf(l2.y - l1.y, 2.0)
     }
-
-    // fn get_epsilon_squared(&self) -> f64 {
-    //     return (self.size.x.powf(2.0) + self.size.y.powf(2.0)) * self.line_quality;
-    // }
 }
