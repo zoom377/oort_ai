@@ -112,16 +112,7 @@ impl Graph {
         }
 
         self.shrink_grow();
-
-        // let zero_height = (0.0).remap(self.min, self.max, bottom, top);
-        // let zero_height = self
-        //     .get_datum_world_position(&Datum {
-        //         tick: 0,
-        //         value: 0.0,
-        //     })
-        //     .y;
-
-        debug!("self.data.len(): {}", self.data.len());
+        
 
         //Draw labels
         if self.show_labels {
@@ -162,7 +153,7 @@ impl Graph {
             return;
         }
 
-        let epsilon = 1.0;
+        let epsilon = 0.0;
         let visible_range = self.get_visible_range_indices();
         let mut critical_points = Vec::<Vec2>::new();
         let mut stack = VecDeque::<(usize, usize)>::new();
@@ -178,7 +169,7 @@ impl Graph {
             let mut largest_index: usize;
 
             if current.0 + 1 <= current.1 - 1 {
-                return;
+                break;
             }
 
             for index in current.0 + 1..current.1 - 1 {
@@ -195,21 +186,23 @@ impl Graph {
             }
         }
         critical_points.push(self.get_datum_world_position(&self.data[self.data.len() - 1]));
+        debug!("data count: {}", self.data.len());
+        debug!("visible range: {},{}", visible_range.0, visible_range.1);
+        debug!("critical data count: {}", critical_points.len());
 
         //Draw critical points
         let mut is_first_point = true;
         let mut last_point: Vec2 = Default::default();
-        for datum in &self.data {
-            let point = self.get_datum_world_position(datum);
-            if point.x >= left && point.x < right {
-                if is_first_point == true {
-                    is_first_point = false;
-                } else {
-                    draw_line(last_point, point, self.color)
-                }
-                last_point = point;
+        for point in critical_points {
+            if is_first_point == true {
+                is_first_point = false;
+            } else {
+                draw_line(last_point, point, self.color)
             }
+            last_point = point;
         }
+
+
     }
 
     fn shrink_grow(&mut self) {
@@ -251,7 +244,7 @@ impl Graph {
 
     fn get_visible_range_indices(&self) -> (usize, usize) {
         let start_tick = self.get_start_tick();
-        let mut range = (0, self.data.len());
+        let mut range = (0, self.data.len() - 1);
         while self.data[range.0].tick < start_tick {
             range.0 += 1;
         }
