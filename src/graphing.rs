@@ -14,12 +14,14 @@ pub struct Graph {
     pub min: f64,
     pub max: f64,
     pub timespan: f64,
-    pub color: u32,
     pub epsilon_squared: f64,
+    pub color: u32,
     pub show_labels: bool,
     pub auto_grow: bool,
     pub auto_shrink: bool,
-    pub data: VecDeque<Datum>, //Don't set this. Haven't figured out private fields yet.
+    pub debug: bool,
+    //Don't set this. Haven't figured out private fields yet.
+    pub data: VecDeque<Datum>, 
 }
 
 impl Default for Graph {
@@ -29,12 +31,13 @@ impl Default for Graph {
             size: vec2(1000.0, 1000.0),
             min: 0.0,
             max: 0.0,
-            timespan: 30.0,
+            timespan: 5.0,
+            epsilon_squared: 0.0,
             color: 0xff0000,
-            epsilon_squared: 100.0,
             show_labels: true,
             auto_grow: true,
             auto_shrink: false,
+            debug : false,
             data: VecDeque::new(),
         }
     }
@@ -70,30 +73,6 @@ impl Graph {
     }
 
     pub fn tick(&mut self) {
-        // Pop invisible data points
-        // {
-        //     let mut first_visible_tick = 0;
-        //     for pair in self.data.iter().enumerate() {
-        //         if (pair.1.tick as f64) >= self.get_start_tick() as f64 {
-        //             //Found first visible data point. Everything before must be invisible
-        //             first_visible_tick = pair.1.tick;
-        //             break;
-        //         }
-        //     }
-
-        //     let mut last_pop: Option<Datum> = None;
-        //     while let Some(front) = self.data.front() {
-        //         if front.tick == first_visible_tick {
-        //             break;
-        //         }
-        //         last_pop = self.data.pop_front();
-        //     }
-
-        //     if let Some(pop) = last_pop {
-        //         self.data.push_front(pop);
-        //     }
-        // }
-
         self.remove_hidden_points();
         self.shrink_grow();
         self.draw_axes();
@@ -116,8 +95,6 @@ impl Graph {
         //Adjust earliest data point as it leaves the graph for smoother appearance
         if let Some(last_front) = last_front {
             self.data.push_front(last_front);
-            // let first_point = self.get_datum_world_position(&self.data[0]);
-            // let second_point = self.get_datum_world_position(&self.data[1]);
 
             let t = F64Ex::lerp_inverse(
                 self.get_start_tick() as f64,
