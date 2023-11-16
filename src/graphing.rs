@@ -1,10 +1,17 @@
-use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    num::ParseIntError,
-};
+use std::collections::{HashSet, VecDeque};
 
 use crate::f64_extensions::F64Ex;
 use oort_api::prelude::{maths_rs::powf, *};
+
+fn log_time(label: String) {
+    static mut LAST_TIME: f64 = 0.0;
+    unsafe {
+        let duration = current_time() - LAST_TIME;
+        debug!("{}: {:.2}ms", label, duration * 1000.0);
+        LAST_TIME = current_time();
+        
+    }
+}
 
 pub struct Datum {
     pub value: f64,
@@ -56,6 +63,7 @@ impl Graph {
     }
 
     pub fn tick(&mut self) {
+        log_time(String::from("Start"));
         //Calculate visible boundaries of graph
         let left = self.position.x;
         let right = left + self.size.x;
@@ -206,6 +214,7 @@ impl Graph {
             }
         }
         debug!("Lines drawn: {}", lines_drawn);
+        log_time(String::from("End"));
     }
 
     fn shrink_grow(&mut self) {
