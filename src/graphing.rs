@@ -18,29 +18,27 @@ pub struct Graph {
     pub max: f64,
     pub timespan: f64,
     pub color: u32,
-    pub data: VecDeque<Datum>, //Don't set this. Haven't figured out private fields yet.
-    pub min_delta: f64,
-    pub enable_dynamic_min_delta: bool,
+    pub line_quality: f64,
     pub show_labels: bool,
     pub auto_grow: bool,
     pub auto_shrink: bool,
+    pub data: VecDeque<Datum>, //Don't set this. Haven't figured out private fields yet.
 }
 
 impl Default for Graph {
     fn default() -> Self {
         Self {
             position: vec2(0.0, 0.0),
-            size: vec2(1000.0, 250.0),
+            size: vec2(100000.0, 250.0),
             min: 0.0,
             max: 0.0,
             timespan: 5.0,
             color: 0xff0000,
-            data: VecDeque::new(),
-            min_delta: f64::EPSILON,
-            enable_dynamic_min_delta: true,
+            line_quality: 0.0001,
             show_labels: true,
             auto_grow: true,
             auto_shrink: true,
+            data: VecDeque::new(),
         }
     }
 }
@@ -51,24 +49,6 @@ impl Graph {
     }
 
     pub fn add(&mut self, value: f64) {
-        let mut min_delta = self.min_delta;
-        if self.enable_dynamic_min_delta {
-            min_delta = (self.max - self.min) / 100.0;
-        }
-
-        //Todo: Keep ALL data as it can't cost much.
-        //Add a seperate pass over the vector for drawing lines/filtering.
-        //30 seconds * 60 ticks per second = 1800 total ticks = 1800 total vec elements
-
-        //Dont add if the difference from last datum is insignificant
-        // if self.data.len() > 0 {
-        //     let last = self.data[self.data.len() - 1].value;
-        //     let delta = value - last;
-        //     if delta.abs() < min_delta {
-        //         return;
-        //     }
-        // }
-
         self.data.push_back(Datum {
             value: value,
             tick: current_tick() as i32,
@@ -91,7 +71,7 @@ impl Graph {
             let mut first_visible_tick = 0;
             for pair in self.data.iter().enumerate() {
                 if (pair.1.tick as f64) >= (start_tick as f64) {
-                    debug!("{}, {}", pair.1.tick as f64, start_tick as f64);
+                    // debug!("{}, {}", pair.1.tick as f64, start_tick as f64);
                     //Found first visible data point. Everything before must be invisible
                     first_visible_tick = pair.1.tick;
                     break;
@@ -112,7 +92,6 @@ impl Graph {
         }
 
         self.shrink_grow();
-        
 
         //Draw labels
         if self.show_labels {
@@ -153,56 +132,77 @@ impl Graph {
             return;
         }
 
-        let epsilon = 0.0;
-        let visible_range = self.get_visible_range_indices();
-        let mut critical_points = Vec::<Vec2>::new();
+        let epsilon = self.get_epsilon();
+        let visible_range = self.get_visible_indices_range();
+        let mut critical_points_indices = HashSet::<usize>::new();
         let mut stack = VecDeque::<(usize, usize)>::new();
+        debug!("Visible range: [{}..{}]", visible_range.0, visible_range.1);
+        debug!("Epsilon: {}", epsilon);
 
         stack.push_back(visible_range);
-        critical_points.push(self.get_datum_world_position(&self.data[0]));
+        critical_points_indices.insert(0);
+        critical_points_indices.insert(self.data.len() - 1);
+        let mut loops = 0;
+        let mut calculations = 0;
 
         while stack.front().is_some() {
             let current = stack.pop_front().unwrap();
             let line_start = self.get_datum_world_position(&self.data[current.0]);
             let line_end = self.get_datum_world_position(&self.data[current.1]);
-            let mut largest_distance = f64::MIN;
-            let mut largest_index: usize;
+            let mut largest_distance = 0.0;
+            let mut largest_index: usize = 0;
+            loops += 1;
 
-            if current.0 + 1 <= current.1 - 1 {
-                break;
+            if current.0 + 1 >= current.1 - 1 {
+                //<= 0 points between these two
+                continue;
             }
 
+            //Find furthest point from current line
             for index in current.0 + 1..current.1 - 1 {
                 let datum_world_position = self.get_datum_world_position(&self.data[index]);
                 let distance_from_line =
                     Graph::point_distance_to_line(datum_world_position, line_start, line_end);
-                if distance_from_line > largest_distance && distance_from_line >= epsilon {
+                calculations += 1;
+                if distance_from_line > largest_distance {
                     largest_index = index;
                     largest_distance = distance_from_line;
-                    critical_points.push(datum_world_position);
-                    stack.push_back((current.0, index));
-                    stack.push_back((index, current.1));
                 }
             }
-        }
-        critical_points.push(self.get_datum_world_position(&self.data[self.data.len() - 1]));
-        debug!("data count: {}", self.data.len());
-        debug!("visible range: {},{}", visible_range.0, visible_range.1);
-        debug!("critical data count: {}", critical_points.len());
 
-        //Draw critical points
+            //Subdivide line if a point exceeding epsilon was found
+            if largest_distance >= epsilon {
+                critical_points_indices.insert(largest_index);
+                stack.push_back((current.0, largest_index));
+                stack.push_back((largest_index, current.1));
+            }
+        }
+
+        //Add last graph point to be drawn
+
+        debug!("Data points: {}", self.data.len());
+        debug!("Critical data points: {}", critical_points_indices.len());
+        debug!("Point-line distance calculations: {}", calculations);
+        debug!("Loops: {}", loops);
+        // debug!("Visible range: {},{}", visible_range.0, visible_range.1);
+
+        //Draw curve
         let mut is_first_point = true;
         let mut last_point: Vec2 = Default::default();
-        for point in critical_points {
-            if is_first_point == true {
-                is_first_point = false;
-            } else {
-                draw_line(last_point, point, self.color)
+        let mut lines_drawn = 0;
+        for index in visible_range.0..visible_range.1 + 1 {
+            if critical_points_indices.contains(&index) {
+                let point = self.get_datum_world_position(&self.data[index]);
+                if is_first_point == true {
+                    is_first_point = false;
+                } else {
+                    draw_line(last_point, point, self.color);
+                    lines_drawn += 1;
+                }
+                last_point = point;
             }
-            last_point = point;
         }
-
-
+        debug!("Lines drawn: {}", lines_drawn);
     }
 
     fn shrink_grow(&mut self) {
@@ -242,10 +242,10 @@ impl Graph {
         );
     }
 
-    fn get_visible_range_indices(&self) -> (usize, usize) {
+    fn get_visible_indices_range(&self) -> (usize, usize) {
         let start_tick = self.get_start_tick();
         let mut range = (0, self.data.len() - 1);
-        while self.data[range.0].tick < start_tick {
+        while self.data[range.0].tick < start_tick - 1 {
             range.0 += 1;
         }
         return range;
@@ -258,5 +258,9 @@ impl Graph {
     fn point_distance_to_line(p: Vec2, l1: Vec2, l2: Vec2) -> f64 {
         return ((l2.x - l1.x) * (l1.y - p.y) - (l1.x - p.x) * (l2.y - l1.y))
             / f64::sqrt(f64::powf(l2.x - l1.x, 2.0) + f64::powf(l2.y - l1.y, 2.0));
+    }
+
+    fn get_epsilon(&self) -> f64 {
+        return (self.size.x.powf(2.0) + self.size.y.powf(2.0)).sqrt() * self.line_quality;
     }
 }

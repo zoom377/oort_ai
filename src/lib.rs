@@ -26,8 +26,8 @@ impl Ship {
             graph: Graph {
                 position: vec2(-1000.0, -1000.0),
                 size: vec2(2000.0, 2000.0),
-                min_delta: 0.05,
-                timespan: 5.0,
+                timespan: 10.0,
+                auto_shrink: false,
                 ..Default::default()
             },
             ..Default::default()
@@ -86,7 +86,7 @@ impl Ship {
             }
         }
 
-        self.graph.add(angle_delta);
+        self.graph.add(target_heading);
 
         torque(turn * max_angular_acceleration());
 
