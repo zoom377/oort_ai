@@ -86,7 +86,7 @@ impl Ship {
             }
         }
 
-        self.graph.add(target_heading);
+        self.graph.add(angle_delta);
 
         torque(turn * max_angular_acceleration());
 

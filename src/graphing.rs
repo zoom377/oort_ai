@@ -9,7 +9,6 @@ fn log_time(label: String) {
         let duration = current_time() - LAST_TIME;
         debug!("{}: {:.2}ms", label, duration * 1000.0);
         LAST_TIME = current_time();
-        
     }
 }
 
@@ -25,7 +24,7 @@ pub struct Graph {
     pub max: f64,
     pub timespan: f64,
     pub color: u32,
-    pub line_quality: f64,
+    pub epsilon_squared: f64,
     pub show_labels: bool,
     pub auto_grow: bool,
     pub auto_shrink: bool,
@@ -41,7 +40,7 @@ impl Default for Graph {
             max: 0.0,
             timespan: 5.0,
             color: 0xff0000,
-            line_quality: 0.0001,
+            epsilon_squared: 10000.0,
             show_labels: true,
             auto_grow: true,
             auto_shrink: true,
@@ -56,14 +55,30 @@ impl Graph {
     }
 
     pub fn add(&mut self, value: f64) {
-        self.data.push_back(Datum {
+        let datum = Datum {
             value: value,
             tick: current_tick() as i32,
-        });
+        };
+
+        if self.data.len() >= 3 {
+            let datum_world_position = self.get_datum_world_position(&datum);
+            let line_start = self.get_datum_world_position(&self.data[self.data.len() - 3]);
+            let line_end = self.get_datum_world_position(&self.data[self.data.len() - 2]);
+            debug!("Epsilon squared: {}", self.epsilon_squared);
+            let distance_from_line =
+                Graph::point_distance_to_line_squared(datum_world_position, line_start, line_end);
+
+            if distance_from_line < self.epsilon_squared {
+                let last_index = self.data.len() - 1;
+                self.data[last_index] = datum;
+                return;
+            }
+        }
+
+        self.data.push_back(datum);
     }
 
     pub fn tick(&mut self) {
-        log_time(String::from("Start"));
         //Calculate visible boundaries of graph
         let left = self.position.x;
         let right = left + self.size.x;
@@ -134,87 +149,30 @@ impl Graph {
             );
         }
 
-        //Draw curve
-        //Using Douglas-Puecker algo to reduce lines drawn
-        if self.data.len() < 2 {
-            return;
-        }
-
-        let epsilon_squared = self.get_epsilon_squared();
         let visible_range = self.get_visible_indices_range();
-        let mut critical_points_indices = HashSet::<usize>::new();
-        let mut stack = VecDeque::<(usize, usize)>::new();
-        debug!("Visible range: [{}..{}]", visible_range.0, visible_range.1);
-        debug!("Epsilon^2: {}", epsilon_squared);
-
-        stack.push_back(visible_range);
-        critical_points_indices.insert(0);
-        critical_points_indices.insert(self.data.len() - 1);
-        let mut loops = 0;
-        let mut calculations = 0;
-
-        while stack.front().is_some() {
-            let current = stack.pop_front().unwrap();
-            let line_start = self.get_datum_world_position(&self.data[current.0]);
-            let line_end = self.get_datum_world_position(&self.data[current.1]);
-            let mut largest_distance = 0.0;
-            let mut largest_index: usize = 0;
-            loops += 1;
-
-            if current.0 + 1 >= current.1 - 1 {
-                //<= 0 points between these two
-                continue;
-            }
-
-            //Find furthest point from current line
-            for index in current.0 + 1..current.1 - 1 {
-                let datum_world_position = self.get_datum_world_position(&self.data[index]);
-                let distance_from_line = Graph::point_distance_to_line_squared(
-                    datum_world_position,
-                    line_start,
-                    line_end,
-                );
-                calculations += 1;
-                if distance_from_line > largest_distance {
-                    largest_index = index;
-                    largest_distance = distance_from_line;
-                }
-            }
-
-            //Subdivide line if a point exceeding epsilon was found
-            if largest_distance >= epsilon_squared {
-                critical_points_indices.insert(largest_index);
-                stack.push_back((current.0, largest_index));
-                stack.push_back((largest_index, current.1));
-            }
-        }
-
-        //Add last graph point to be drawn
-
+        
         debug!("Data points: {}", self.data.len());
-        debug!("Critical data points: {}", critical_points_indices.len());
-        debug!("Point-line distance calculations: {}", calculations);
-        debug!("Loops: {}", loops);
+        // debug!("Critical data points: {}", critical_points_indices.len());
+        // debug!("Point-line distance calculations: {}", calculations);
+        // debug!("Loops: {}", loops);
         // debug!("Visible range: {},{}", visible_range.0, visible_range.1);
 
         //Draw curve
         let mut is_first_point = true;
         let mut last_point: Vec2 = Default::default();
         let mut lines_drawn = 0;
+
         for index in visible_range.0..visible_range.1 + 1 {
-            if critical_points_indices.contains(&index) {
-                let point = self.get_datum_world_position(&self.data[index]);
-                if is_first_point == true {
-                    is_first_point = false;
-                } else {
-                    draw_line(last_point, point, self.color);
-                    lines_drawn += 1;
-                }
-                last_point = point;
+            let point = self.get_datum_world_position(&self.data[index]);
+            if is_first_point == true {
+                is_first_point = false;
+            } else {
+                draw_line(last_point, point, self.color);
+                lines_drawn += 1;
             }
+            last_point = point;
         }
         debug!("Lines drawn: {}", lines_drawn);
-        log_time(String::from("End"));
     }
 
     fn shrink_grow(&mut self) {
@@ -281,7 +239,7 @@ impl Graph {
         //distance to line^2 = ((l2.x - l1.x) * (l1.y - p.y) - (l1.x - p.x) * (l2.y - l1.y))^2 / f64::powf(l2.x - l1.x, 2.0) + f64::powf(l2.y - l1.y, 2.0)
     }
 
-    fn get_epsilon_squared(&self) -> f64 {
-        return (self.size.x.powf(2.0) + self.size.y.powf(2.0)) * self.line_quality;
-    }
+    // fn get_epsilon_squared(&self) -> f64 {
+    //     return (self.size.x.powf(2.0) + self.size.y.powf(2.0)) * self.line_quality;
+    // }
 }
