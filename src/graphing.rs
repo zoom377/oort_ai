@@ -1,7 +1,7 @@
-use std::collections::VecDeque;
+use std::collections::{btree_set::Intersection, VecDeque};
 
 use crate::f64_extensions::F64Ex;
-use oort_api::prelude::{*};
+use oort_api::prelude::{maths_rs::lerp, *};
 
 pub struct Datum {
     pub value: f64,
@@ -25,16 +25,16 @@ pub struct Graph {
 impl Default for Graph {
     fn default() -> Self {
         Self {
-            position: vec2(0.0, 0.0),
-            size: vec2(100000.0, 250.0),
+            position: vec2(-500.0, -500.0),
+            size: vec2(1000.0, 1000.0),
             min: 0.0,
             max: 0.0,
-            timespan: 5.0,
+            timespan: 30.0,
             color: 0xff0000,
             epsilon_squared: 100.0,
             show_labels: true,
             auto_grow: true,
-            auto_shrink: true,
+            auto_shrink: false,
             data: VecDeque::new(),
         }
     }
@@ -71,29 +71,30 @@ impl Graph {
 
     pub fn tick(&mut self) {
         // Pop invisible data points
-        {
-            let mut first_visible_tick = 0;
-            for pair in self.data.iter().enumerate() {
-                if (pair.1.tick as f64) >= self.get_start_tick() as f64 {
-                    //Found first visible data point. Everything before must be invisible
-                    first_visible_tick = pair.1.tick;
-                    break;
-                }
-            }
+        // {
+        //     let mut first_visible_tick = 0;
+        //     for pair in self.data.iter().enumerate() {
+        //         if (pair.1.tick as f64) >= self.get_start_tick() as f64 {
+        //             //Found first visible data point. Everything before must be invisible
+        //             first_visible_tick = pair.1.tick;
+        //             break;
+        //         }
+        //     }
 
-            let mut last_pop: Option<Datum> = None;
-            while let Some(front) = self.data.front() {
-                if front.tick == first_visible_tick {
-                    break;
-                }
-                last_pop = self.data.pop_front();
-            }
+        //     let mut last_pop: Option<Datum> = None;
+        //     while let Some(front) = self.data.front() {
+        //         if front.tick == first_visible_tick {
+        //             break;
+        //         }
+        //         last_pop = self.data.pop_front();
+        //     }
 
-            if let Some(pop) = last_pop {
-                self.data.push_front(pop);
-            }
-        }
+        //     if let Some(pop) = last_pop {
+        //         self.data.push_front(pop);
+        //     }
+        // }
 
+        self.remove_hidden_points();
         self.shrink_grow();
         self.draw_axes();
         self.draw_labels();
@@ -102,14 +103,46 @@ impl Graph {
         debug!("Data points: {}", self.data.len());
     }
 
+    fn remove_hidden_points(&mut self) {
+        let mut last_front: Option<Datum> = None;
+
+        while let Some(front) = self.data.front() {
+            if front.tick >= self.get_start_tick() {
+                break;
+            }
+            last_front = self.data.pop_front();
+        }
+
+        //Adjust earliest data point as it leaves the graph for smoother appearance
+        if let Some(last_front) = last_front {
+            self.data.push_front(last_front);
+            // let first_point = self.get_datum_world_position(&self.data[0]);
+            // let second_point = self.get_datum_world_position(&self.data[1]);
+
+            let t = F64Ex::lerp_inverse(
+                self.get_start_tick() as f64,
+                self.data[0].tick as f64,
+                self.data[1].tick as f64,
+            );
+
+            let new_tick = lerp(self.data[0].tick as f64, self.data[1].tick as f64, t);
+            let new_val = lerp(self.data[0].value, self.data[1].value, t);
+
+            self.data[0] = Datum {
+                tick: new_tick as i32,
+                value: new_val,
+            };
+        }
+    }
+
     fn draw_curve(&self) {
-        let visible_range = self.get_visible_indices_range();
+        // let visible_range = self.get_visible_indices_range();
         let mut is_first_point = true;
         let mut last_point: Vec2 = Default::default();
         let mut lines_drawn = 0;
 
-        for index in visible_range.0..visible_range.1 + 1 {
-            let point = self.get_datum_world_position(&self.data[index]);
+        for pair in self.data.iter().enumerate() {
+            let point = self.get_datum_world_position(&pair.1);
             if is_first_point == true {
                 is_first_point = false;
             } else {

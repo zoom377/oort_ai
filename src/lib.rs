@@ -24,10 +24,8 @@ impl Ship {
     pub fn new() -> Ship {
         return Ship {
             graph: Graph {
-                position: vec2(-1000.0, -1000.0),
-                size: vec2(2000.0, 2000.0),
-                timespan: 10.0,
-                auto_shrink: false,
+                position: vec2(-500.0, -500.0),
+                size: vec2(1000.0, 1000.0),
                 ..Default::default()
             },
             ..Default::default()
@@ -73,22 +71,23 @@ impl Ship {
         //-v0^2 / 2a = dx
         let critical_deccel_angle =
             get_critical_deccel_angle(angular_velocity(), max_angular_acceleration());
-        let mut turn: f64 = 0.0;
-        if angle_delta < 0.0 {
-            turn = -1.0;
-            if angle_delta.abs() > critical_deccel_angle {
-                turn *= -1.0;
-            }
-        } else {
-            turn = 1.0;
-            if angle_delta.abs() <= critical_deccel_angle {
-                turn *= -1.0;
-            }
-        }
+        // let mut turn: f64 = 0.0;
+        // if angle_delta < 0.0 {
+        //     turn = -1.0;
+        //     if angle_delta.abs() > critical_deccel_angle {
+        //         turn *= -1.0;
+        //     }
+        // } else {
+        //     turn = 1.0;
+        //     if angle_delta.abs() <= critical_deccel_angle {
+        //         turn *= -1.0;
+        //     }
+        // }
+        // torque(turn * max_angular_acceleration());
 
+        // turn(angle_delta * 30.0);
+        turn(angle_delta * 30.0);
         self.graph.add(angle_delta);
-
-        torque(turn * max_angular_acceleration());
 
         let heading_vector = Vec2::rotate(vec2(1.0, 0.0), heading());
         let l1 = heading_vector.rotate(critical_deccel_angle) * 500.0;
