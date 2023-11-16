@@ -27,8 +27,7 @@ impl Ship {
                 position: vec2(-1000.0, -1000.0),
                 size: vec2(2000.0, 2000.0),
                 min_delta: 0.05,
-                time_span: 5.0,
-                auto_shrink: false,
+                timespan: 5.0,
                 ..Default::default()
             },
             ..Default::default()

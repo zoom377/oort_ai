@@ -1,11 +1,14 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    num::ParseIntError,
+};
 
 use crate::f64_extensions::F64Ex;
 use oort_api::prelude::{maths_rs::powf, *};
 
 pub struct Datum {
     pub value: f64,
-    pub tick: u32,
+    pub tick: i32,
 }
 
 pub struct Graph {
@@ -13,9 +16,9 @@ pub struct Graph {
     pub size: Vec2,
     pub min: f64,
     pub max: f64,
-    pub time_span: f64,
+    pub timespan: f64,
     pub color: u32,
-    pub data: VecDeque<Datum>,
+    pub data: VecDeque<Datum>, //Don't set this. Haven't figured out private fields yet.
     pub min_delta: f64,
     pub enable_dynamic_min_delta: bool,
     pub show_labels: bool,
@@ -30,7 +33,7 @@ impl Default for Graph {
             size: vec2(1000.0, 250.0),
             min: 0.0,
             max: 0.0,
-            time_span: 5.0,
+            timespan: 5.0,
             color: 0xff0000,
             data: VecDeque::new(),
             min_delta: f64::EPSILON,
@@ -58,17 +61,17 @@ impl Graph {
         //30 seconds * 60 ticks per second = 1800 total ticks = 1800 total vec elements
 
         //Dont add if the difference from last datum is insignificant
-        if self.data.len() > 0 {
-            let last = self.data[self.data.len() - 1].value;
-            let delta = value - last;
-            if delta.abs() < min_delta {
-                return;
-            }
-        }
+        // if self.data.len() > 0 {
+        //     let last = self.data[self.data.len() - 1].value;
+        //     let delta = value - last;
+        //     if delta.abs() < min_delta {
+        //         return;
+        //     }
+        // }
 
         self.data.push_back(Datum {
             value: value,
-            tick: current_tick(),
+            tick: current_tick() as i32,
         });
     }
 
@@ -81,7 +84,7 @@ impl Graph {
 
         let top_left = vec2(left, top);
         let bottom_left = vec2(left, bottom);
-        let start_tick = current_tick() as i32 - (self.time_span / TICK_LENGTH).round() as i32;
+        let start_tick = current_tick() as i32 - (self.timespan / TICK_LENGTH).round() as i32;
 
         // Pop invisible data points
         {
@@ -110,7 +113,13 @@ impl Graph {
 
         self.shrink_grow();
 
-        let zero_height = (0.0).remap(self.min, self.max, bottom, top);
+        // let zero_height = (0.0).remap(self.min, self.max, bottom, top);
+        // let zero_height = self
+        //     .get_datum_world_position(&Datum {
+        //         tick: 0,
+        //         value: 0.0,
+        //     })
+        //     .y;
 
         debug!("self.data.len(): {}", self.data.len());
 
@@ -135,37 +144,63 @@ impl Graph {
         //Draw zero line and label
         if self.min < 0.0 && self.max > 0.0 {
             draw_line(
-                vec2(self.position.x, self.position.y + zero_height),
-                vec2(self.position.x + self.size.x, self.position.y + zero_height),
+                self.get_datum_world_position(&Datum {
+                    value: 0.0,
+                    tick: start_tick,
+                }),
+                self.get_datum_world_position(&Datum {
+                    value: 0.0,
+                    tick: current_tick() as i32,
+                }),
                 0xcccccc,
             );
         }
 
         //Draw curve
         //Using Douglas-Puecker algo to reduce lines drawn
+        if self.data.len() < 2 {
+            return;
+        }
+
         let epsilon = 1.0;
-        let mut critical_point_indices = HashSet::<usize>::new();
+        let visible_range = self.get_visible_range_indices();
+        let mut critical_points = Vec::<Vec2>::new();
         let mut stack = VecDeque::<(usize, usize)>::new();
 
-        stack.push_back((0, self.data.len() - 1));
-        critical_point_indices.insert(0);
-        critical_point_indices.insert(self.data.len() - 1);
+        stack.push_back(visible_range);
+        critical_points.push(self.get_datum_world_position(&self.data[0]));
 
         while stack.front().is_some() {
             let current = stack.pop_front().unwrap();
-            let line_start = &self.data[current.0];
-            let line_end = &self.data[current.1];
+            let line_start = self.get_datum_world_position(&self.data[current.0]);
+            let line_end = self.get_datum_world_position(&self.data[current.1]);
+            let mut largest_distance = f64::MIN;
+            let mut largest_index: usize;
+
+            if current.0 + 1 <= current.1 - 1 {
+                return;
+            }
+
+            for index in current.0 + 1..current.1 - 1 {
+                let datum_world_position = self.get_datum_world_position(&self.data[index]);
+                let distance_from_line =
+                    Graph::point_distance_to_line(datum_world_position, line_start, line_end);
+                if distance_from_line > largest_distance && distance_from_line >= epsilon {
+                    largest_index = index;
+                    largest_distance = distance_from_line;
+                    critical_points.push(datum_world_position);
+                    stack.push_back((current.0, index));
+                    stack.push_back((index, current.1));
+                }
+            }
         }
+        critical_points.push(self.get_datum_world_position(&self.data[self.data.len() - 1]));
 
-        // for datum in &self.data {}
-
+        //Draw critical points
         let mut is_first_point = true;
         let mut last_point: Vec2 = Default::default();
         for datum in &self.data {
-            let x =
-                f64::from(datum.tick).remap(start_tick as f64, current_tick() as f64, left, right);
-            let y = datum.value.remap(self.min, self.max, bottom, top);
-            let point = vec2(x, y);
+            let point = self.get_datum_world_position(datum);
             if point.x >= left && point.x < right {
                 if is_first_point == true {
                     is_first_point = false;
@@ -196,29 +231,35 @@ impl Graph {
         }
     }
 
-    fn get_datum_world_position(
-        datum: Datum,
-        graph_pos: Vec2,
-        graph_size: Vec2,
-        graph_timespan: f64,
-        graph_min: f64,
-        graph_max: f64,
-    ) -> Vec2 {
-        let start_tick = current_tick() as i32 - (graph_timespan / TICK_LENGTH).round() as i32;
+    fn get_datum_world_position(&self, datum: &Datum) -> Vec2 {
+        let start_tick = self.get_start_tick();
         return vec2(
             (datum.tick as f64).remap(
                 start_tick as f64,
                 current_tick() as f64,
-                graph_pos.x,
-                graph_pos.x + graph_size.x,
+                self.position.x,
+                self.position.x + self.size.x,
             ),
             datum.value.remap(
-                graph_min,
-                graph_max,
-                graph_pos.y,
-                graph_pos.y + graph_size.y,
+                self.min,
+                self.max,
+                self.position.y,
+                self.position.y + self.size.y,
             ),
         );
+    }
+
+    fn get_visible_range_indices(&self) -> (usize, usize) {
+        let start_tick = self.get_start_tick();
+        let mut range = (0, self.data.len());
+        while self.data[range.0].tick < start_tick {
+            range.0 += 1;
+        }
+        return range;
+    }
+
+    fn get_start_tick(&self) -> i32 {
+        return current_tick() as i32 - (self.timespan / TICK_LENGTH).round() as i32;
     }
 
     fn point_distance_to_line(p: Vec2, l1: Vec2, l2: Vec2) -> f64 {
