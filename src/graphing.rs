@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use crate::f64_extensions::F64Ex;
-use oort_api::prelude::*;
+use oort_api::prelude::{maths_rs::powf, *};
 
 pub struct Datum {
     pub value: f64,
@@ -84,26 +84,28 @@ impl Graph {
         let start_tick = current_tick() as i32 - (self.time_span / TICK_LENGTH).round() as i32;
 
         // Pop invisible data points
-        let mut first_visible_tick = 0;
-        for pair in self.data.iter().enumerate() {
-            if (pair.1.tick as f64) >= (start_tick as f64) {
-                debug!("{}, {}", pair.1.tick as f64, start_tick as f64);
-                //Found first visible data point. Everything before must be invisible
-                first_visible_tick = pair.1.tick;
-                break;
+        {
+            let mut first_visible_tick = 0;
+            for pair in self.data.iter().enumerate() {
+                if (pair.1.tick as f64) >= (start_tick as f64) {
+                    debug!("{}, {}", pair.1.tick as f64, start_tick as f64);
+                    //Found first visible data point. Everything before must be invisible
+                    first_visible_tick = pair.1.tick;
+                    break;
+                }
             }
-        }
 
-        let mut last_pop: Option<Datum> = None;
-        while let Some(front) = self.data.front() {
-            if front.tick == first_visible_tick {
-                break;
+            let mut last_pop: Option<Datum> = None;
+            while let Some(front) = self.data.front() {
+                if front.tick == first_visible_tick {
+                    break;
+                }
+                last_pop = self.data.pop_front();
             }
-            last_pop = self.data.pop_front();
-        }
 
-        if let Some(pop) = last_pop {
-            self.data.push_front(pop);
+            if let Some(pop) = last_pop {
+                self.data.push_front(pop);
+            }
         }
 
         self.shrink_grow();
@@ -139,7 +141,6 @@ impl Graph {
             );
         }
 
-
         //Draw curve
         let mut is_first_point = true;
         let mut last_point: Vec2 = Default::default();
@@ -160,6 +161,10 @@ impl Graph {
         }
     }
 
+    fn point_distance_to_line(p: Vec2, l1: Vec2, l2: Vec2) -> f64 {
+        return ((l2.x - l1.x) * (l1.y - p.y) - (l1.x - p.x) * (l2.y - l1.y))
+            / f64::sqrt(f64::powf(l2.x - l1.x, 2.0) + f64::powf(l2.y - l1.y, 2.0));
+    }
 
     fn shrink_grow(&mut self) {
         let mut largest = f64::MIN;
