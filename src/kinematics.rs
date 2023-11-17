@@ -74,9 +74,7 @@ pub fn get_optimal_arrive_velocity(distance: f64, max_accel: f64, final_velocity
     //v0^2 = -(2ax - v^2)
     //v0 = sqrt(-(2ax - v^2))
     let vel_sqr = (2.0 * max_accel * distance) - final_velocity.powf(2.0);
-    debug!("{}", vel_sqr);
     let mut vel = vel_sqr.abs().sqrt();
     vel *= vel_sqr.signum();
-    debug!("{}", vel);
     return vel;
 }

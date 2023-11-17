@@ -56,7 +56,8 @@ pub struct Graph {
     pub show_labels: bool, //Enable labels. Can be disabled for a few % of ship cpu
     pub auto_grow: bool,   //Determines whether graph should grow in min and max to accomodate data
     pub auto_shrink: bool, //Determines whether graph should shrink in min and max to fit data
-    pub debug: bool,       //Debug prints lines drawn/max lines drawn (shows line draw savings)
+    pub smooth_shrink_grow: bool,
+    pub debug: bool, //Debug prints lines drawn/max lines drawn (shows line draw savings)
 
     //Don't set this. Haven't figured out private fields yet.
     pub data: VecDeque<Datum>,
@@ -70,12 +71,13 @@ impl Default for Graph {
             min: 0.0,
             max: 0.0,
             timespan: 3.0,
-            epsilon_squared: 50.0,
+            epsilon_squared: 100.0,
             color: 0xff0000,
             title: String::new(),
             show_labels: true,
             auto_grow: true,
             auto_shrink: true,
+            smooth_shrink_grow: true,
             debug: false,
             data: VecDeque::new(),
         }
@@ -124,7 +126,10 @@ impl Graph {
 
         if self.debug {
             let max_possible_lines = current_tick() as i32 - self.get_start_tick() + 1;
-            debug!("{} lines: {}/{}", self.title, lines_drawn, max_possible_lines);
+            debug!(
+                "{} lines: {}/{}",
+                self.title, lines_drawn, max_possible_lines
+            );
         }
     }
 
@@ -196,7 +201,7 @@ impl Graph {
                     self.max
                 );
             }
-            
+
             if !self.title.is_empty() {
                 draw_text!(
                     self.normalised_to_world_pos(vec2(0.5, 0.0)),
@@ -239,6 +244,7 @@ impl Graph {
     }
 
     fn shrink_grow(&mut self) {
+        const SMOOTH: f64 = 0.1;
         let mut largest = f64::MIN;
         let mut smallest = f64::MAX;
         for datum in &self.data {
@@ -246,14 +252,25 @@ impl Graph {
             smallest = smallest.min(datum.value);
         }
 
+        let mut new_max = self.max;
+        let mut new_min = self.min;
+
         if self.auto_shrink {
-            self.max = self.max.min(largest);
-            self.min = self.min.max(smallest);
+            new_max = new_max.min(largest);
+            new_min = new_min.max(smallest);
         }
 
         if self.auto_grow {
-            self.max = self.max.max(largest);
-            self.min = self.min.min(smallest);
+            new_max = new_max.max(largest);
+            new_min = new_min.min(smallest);
+        }
+
+        if self.smooth_shrink_grow {
+            self.max = f64::lerp(SMOOTH, self.max, new_max);
+            self.min = f64::lerp(SMOOTH, self.min, new_min);
+        } else {
+            self.max = new_max;
+            self.min = new_min;
         }
     }
 
