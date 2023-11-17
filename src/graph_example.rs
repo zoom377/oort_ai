@@ -30,6 +30,7 @@ impl Ship {
     }
 
     pub fn tick(&mut self) {
-        self.graph.add()
+        self.graph.add(heading());
+        self.graph.tick();
     }
 }

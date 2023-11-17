@@ -1,5 +1,5 @@
 use oort_api::prelude::*;
-use std::collections::VecDeque;
+use std::{collections::VecDeque, fmt::Display};
 
 pub trait F64Ex {
     fn move_towards(self, target: f64, max_delta: f64) -> f64;
@@ -12,12 +12,18 @@ impl F64Ex for f64 {
         return self + (target - self).clamp(-max_delta, max_delta);
     }
     fn lerp(self, min: f64, max: f64) -> f64 {
-        return self * (max - min) + min;
+        let res = self * (max - min) + min;
+        return res;
     }
     fn lerp_inverse(self, min: f64, max: f64) -> f64 {
-        return (self - min) / (max - min);
+        let range = max - min;
+        let res = (self - min) / range;
+        return res;
     }
     fn remap(self, min: f64, max: f64, new_min: f64, new_max: f64) -> f64 {
+        if min == max {
+            return new_min;
+        }
         let t = self.lerp_inverse(min, max);
         let res = t.lerp(new_min, new_max);
         return res;
@@ -25,23 +31,33 @@ impl F64Ex for f64 {
 }
 
 pub struct Datum {
-    pub value: f64,
     pub tick: i32,
+    pub value: f64,
+}
+
+impl Display for Datum {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{},{}]", self.tick, self.value)
+    }
 }
 
 pub struct Graph {
-    pub position: Vec2,
-    pub size: Vec2,
-    pub min: f64,
-    pub max: f64,
-    pub timespan: f64,
+    pub position: Vec2, //Position of graph in world space
+    pub size: Vec2,     //Size of graph in world space
+    pub min: f64,       //Min value displayed on graph
+    pub max: f64,       //Max value displayed on graph
+    pub timespan: f64,  //Graph time length in seconds
+
+    //This controls the quality of the graph curve. Higher number = lower quality. 20.0 is a good starting point.
+    //0 means that a line is drawn between every data point. This can go up to 100 or 1000 if you need very long or multiple graphs.
     pub epsilon_squared: f64,
-    pub color: u32,
-    pub title: String,
-    pub show_labels: bool,
-    pub auto_grow: bool,
-    pub auto_shrink: bool,
-    pub debug: bool,
+    pub color: u32,        //Color of graph curve and labels
+    pub title: String,     //Title string
+    pub show_labels: bool, //Enable labels. Can be disabled for a few % of ship cpu
+    pub auto_grow: bool,   //Determines whether graph should grow in min and max to accomodate data
+    pub auto_shrink: bool, //Determines whether graph should shrink in min and max to fit data
+    pub debug: bool,       //Debug prints lines drawn/max lines drawn (shows line draw savings)
+
     //Don't set this. Haven't figured out private fields yet.
     pub data: VecDeque<Datum>,
 }
@@ -54,7 +70,7 @@ impl Default for Graph {
             min: 0.0,
             max: 0.0,
             timespan: 3.0,
-            epsilon_squared: 20.0,
+            epsilon_squared: 50.0,
             color: 0xff0000,
             title: String::new(),
             show_labels: true,
@@ -72,10 +88,14 @@ impl Graph {
     }
 
     pub fn add(&mut self, value: f64) {
-        let datum = Datum {
-            value: value,
+        let mut datum = Datum {
             tick: current_tick() as i32,
+            value: value,
         };
+
+        if datum.value.is_nan() {
+            datum.value = 0.0;
+        }
 
         if self.data.len() >= 3 {
             let datum_world_position = self.get_datum_world_position(&datum);
@@ -104,7 +124,7 @@ impl Graph {
 
         if self.debug {
             let max_possible_lines = current_tick() as i32 - self.get_start_tick() + 1;
-            debug!("Lines: {}/{}", lines_drawn, max_possible_lines);
+            debug!("{} lines: {}/{}", self.title, lines_drawn, max_possible_lines);
         }
     }
 
@@ -162,32 +182,24 @@ impl Graph {
     fn draw_labels(&self) {
         if self.show_labels {
             draw_text!(
-                self.get_datum_world_position(&Datum {
-                    value: self.max,
-                    tick: self.get_start_tick()
-                }),
-                self.color,
-                "{:.2}",
-                self.max
-            );
-
-            draw_text!(
-                self.get_datum_world_position(&Datum {
-                    value: self.min,
-                    tick: self.get_start_tick()
-                }),
+                self.normalised_to_world_pos(vec2(0.0, 0.0)),
                 self.color,
                 "{:.2}",
                 self.min
             );
 
+            if self.min != self.max {
+                draw_text!(
+                    self.normalised_to_world_pos(vec2(0.0, 1.0)),
+                    self.color,
+                    "{:.2}",
+                    self.max
+                );
+            }
+            
             if !self.title.is_empty() {
                 draw_text!(
-                    self.get_datum_world_position(&Datum {
-                        value: self.min,
-                        tick: current_tick() as i32
-                            - (self.timespan / TICK_LENGTH / 2.0).round() as i32
-                    }),
+                    self.normalised_to_world_pos(vec2(0.5, 0.0)),
                     self.color,
                     "{}",
                     self.title
@@ -199,26 +211,14 @@ impl Graph {
     fn draw_axes(&self) {
         //Draw axes
         draw_line(
-            self.get_datum_world_position(&Datum {
-                value: self.min,
-                tick: self.get_start_tick(),
-            }),
-            self.get_datum_world_position(&Datum {
-                value: self.min,
-                tick: current_tick() as i32,
-            }),
+            self.normalised_to_world_pos(vec2(0.0, 0.0)),
+            self.normalised_to_world_pos(vec2(0.0, 1.0)),
             0xffffff,
         );
 
         draw_line(
-            self.get_datum_world_position(&Datum {
-                value: self.min,
-                tick: self.get_start_tick(),
-            }),
-            self.get_datum_world_position(&Datum {
-                value: self.max,
-                tick: self.get_start_tick(),
-            }),
+            self.normalised_to_world_pos(vec2(0.0, 0.0)),
+            self.normalised_to_world_pos(vec2(1.0, 0.0)),
             0xffffff,
         );
 
@@ -260,15 +260,32 @@ impl Graph {
     fn get_datum_world_position(&self, datum: &Datum) -> Vec2 {
         let start_tick = self.get_start_tick();
         return vec2(
-            (datum.tick as f64).remap(
+            F64Ex::remap(
+                datum.tick as f64,
                 start_tick as f64,
                 current_tick() as f64,
                 self.position.x,
                 self.position.x + self.size.x,
             ),
-            datum.value.remap(
+            F64Ex::remap(
+                datum.value,
                 self.min,
                 self.max,
+                self.position.y,
+                self.position.y + self.size.y,
+            ),
+        );
+    }
+
+    fn normalised_to_world_pos(&self, pos_normalised: Vec2) -> Vec2 {
+        return vec2(
+            F64Ex::lerp(
+                pos_normalised.x,
+                self.position.x,
+                self.position.x + self.size.x,
+            ),
+            F64Ex::lerp(
+                pos_normalised.y,
                 self.position.y,
                 self.position.y + self.size.y,
             ),

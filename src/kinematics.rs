@@ -1,4 +1,4 @@
-use oort_api::prelude::{maths_rs::approx, *};
+use oort_api::prelude::{maths_rs::{approx, prelude::FloatOps}, *};
 
 use crate::f64_extensions::F64Ex;
 
@@ -7,11 +7,13 @@ Equations of motion
 These are only accurate when acceleration is constant over the timespan.
 
 v = v0 + at
-dx = t((v + v0) / 2)
-dx = v0t + 0.5at^2
-v^2 = v0^2 + 2adx
+x = t((v + v0) / 2)
+x = v0t + 0.5at^2
+v^2 = v0^2 + 2ax
 
 */
+
+// pub fn get_track_torque()
 
 pub fn predict(vel: Vec2, acc: Vec2, time: f64) -> Vec2 {
     return vec2(
@@ -62,4 +64,19 @@ pub fn get_critical_deccel_angle(
     }
 
     return angle;
+}
+
+
+pub fn get_optimal_arrive_velocity(distance: f64, max_accel: f64, final_velocity: f64) -> f64{
+    //v^2 = v0^2 + 2ax
+    //v^2 - v0^2 = 2ax
+    //-(v0^2) = 2ax - v^2
+    //v0^2 = -(2ax - v^2)
+    //v0 = sqrt(-(2ax - v^2))
+    let vel_sqr = (2.0 * max_accel * distance) - final_velocity.powf(2.0);
+    debug!("{}", vel_sqr);
+    let mut vel = vel_sqr.abs().sqrt();
+    vel *= vel_sqr.signum();
+    debug!("{}", vel);
+    return vel;
 }
