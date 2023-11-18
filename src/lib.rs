@@ -18,7 +18,8 @@ const BULLET_SPEED: f64 = 1000.0; // m/s
 pub struct Ship {
     target_last_velocity: Vec2,
     target_last_accel: Vec2,
-    last_target_heading: f64,
+    target_last_jerk: Vec2,
+    target_last_heading: f64,
     graph1: Graph,
     graph2: Graph,
     graph3: Graph,
@@ -29,7 +30,7 @@ impl Ship {
     pub fn new() -> Ship {
         return Ship {
             graph1: Graph {
-                title: String::from("tar acc"),
+                title: String::from("del ang"),
                 position: vec2(-750.0, 500.0),
                 size: vec2(1500.0, 400.0),
                 timespan: 3.0,
@@ -37,7 +38,7 @@ impl Ship {
                 ..Default::default()
             },
             graph2: Graph {
-                title: String::from(""),
+                title: String::from("des vel"),
                 position: vec2(-750.0, 0.0),
                 size: vec2(1500.0, 400.0),
                 timespan: 3.0,
@@ -45,7 +46,7 @@ impl Ship {
                 ..Default::default()
             },
             graph3: Graph {
-                title: String::from("ang del"),
+                title: String::from("opt vel"),
                 position: vec2(-750.0, -500.0),
                 size: vec2(1500.0, 400.0),
                 timespan: 3.0,
@@ -65,36 +66,24 @@ impl Ship {
     }
 
     pub fn tick(&mut self) {
-        // let mut x = 0.0;
-        // for i in  0..1_000_000{
-        //     x += i as f64;
-        //     x /= 2.0;
-        // }
-
-        // turn(x);
-
-        // return;
-
         let target_delta = target() - position();
         let target_velocity_delta = target_velocity() - velocity();
         let target_accel = (target_velocity() - self.target_last_velocity) / TICK_LENGTH;
-        let target_jerk = (target_accel - self.target_last_accel) / TICK_LENGTH;
+        // let target_jerk = (target_accel - self.target_last_accel) / TICK_LENGTH;
+        let new_jerk = (target_accel - self.target_last_accel) / TICK_LENGTH;
+        let target_jerk = vec2(
+            F64Ex::lerp(0.5, self.target_last_jerk.x, new_jerk.x),
+            F64Ex::lerp(0.5, self.target_last_jerk.y, new_jerk.y),
+        );
+        let target_heading = (target() - position()).angle();
 
         let bullet_intercept = predict_intercept(
             target_delta,
             target_velocity_delta,
             target_accel,
-            target_jerk,
+            vec2(0.0, 0.0),
             BULLET_SPEED,
         );
-
-        // let ship_intercept = predict_intercept(
-        //     target_delta,
-        //     target_velocity_delta,
-        //     target_accel,
-        //     target_jerk,
-        //     BULLET_SPEED,
-        // );
 
         let bullet_intercept_world = position() + bullet_intercept;
         let bullet_intercept_angle = bullet_intercept.angle();
@@ -106,54 +95,64 @@ impl Ship {
         // let accel = bullet_intercept.normalize() * max_forward_acceleration();
         accelerate(bullet_intercept);
 
-        self.track(bullet_intercept_angle);
+        self.track(
+            bullet_intercept_angle,
+            (target_heading - self.target_last_heading) / TICK_LENGTH,
+        );
 
-        if delta_angle.abs() <= TAU / 4.0  && current_tick() > 1{
+        if delta_angle.abs() <= TAU / 4.0 && current_tick() > 1 {
             activate_ability(Ability::Boost);
-            debug!("boost");
         }
 
         if delta_angle.abs() <= 0.05 {
             fire(0);
         }
 
-        // self.graph1.add(target_accel.length());
-        // self.graph1.tick();
-
-        // self.graph2.add();
-        // self.graph2.tick();
         draw_diamond(bullet_intercept_world, 50.0, 0xffff00);
 
+        self.target_last_jerk = target_jerk;
         self.target_last_accel = target_accel;
         self.target_last_velocity = target_velocity();
+        self.target_last_heading = target_heading;
     }
 
     //Turns ship to track a moving target. Automatically calculates target velocity.
     //Self frame of reference
-    fn track(&mut self, target_heading: f64) {
+    fn track(&mut self, target_heading: f64, target_angular_velocity: f64) {
         let angle_delta = angle_diff(heading(), target_heading);
-        // let heading_vector = Vec2::rotate(vec2(1.0, 0.0), heading());
-        let target_angular_velocity = angle_diff(self.last_target_heading, target_heading);
+        // let target_angular_velocity =
+        //     angle_diff(self.last_target_heading, target_heading) / TICK_LENGTH;
 
-        let desired_velocity = get_optimal_arrive_velocity(
+        let desired_angular_velocity = get_optimal_arrive_velocity(
             angle_delta,
             max_angular_acceleration() * 1.0,
             target_angular_velocity,
         );
 
-        let mut impulse = desired_velocity - angular_velocity();
-        impulse = impulse.clamp(-max_angular_acceleration(), max_angular_acceleration());
-        torque(impulse / TICK_LENGTH);
+        let optimal_angular_velocity = get_optimal_arrive_velocity_2(
+            angle_delta,
+            target_angular_velocity,
+            max_angular_acceleration() * 1.0,
+            0.0,
+        );
 
-        // let mut impulse = (desired_velocity - angular_velocity()).signum() * max_angular_acceleration();
-        // torque(impulse);
+        // let mut accel = (optimal_velocity - angular_velocity()).signum() * max_angular_acceleration();
+        let mut accel = optimal_angular_velocity - angular_velocity();
+        accel = accel.clamp(-max_angular_acceleration(), max_angular_acceleration());
+        torque(accel / TICK_LENGTH);
 
-        self.graph3.add(angle_delta);
+        self.graph1.add(angle_delta);
+        self.graph1.tick();
+
+        self.graph2.add(desired_angular_velocity);
+        self.graph2.tick();
+
+        self.graph3.add(optimal_angular_velocity);
         self.graph3.tick();
 
-        self.graph4.add(impulse);
+        self.graph4.add(accel);
         self.graph4.tick();
 
-        self.last_target_heading = target_heading;
+        //(v0^2 + 2ad)
     }
 }

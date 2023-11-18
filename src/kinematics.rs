@@ -18,7 +18,10 @@ v^2 = v0^2 + 2ax
 
 pub fn delta_distance(time: f64, inital_velocity: f64, accel: f64, jerk: f64) -> f64 {
     const ONE_SIXTH: f64 = 1.0 / 6.0;
-    time * (inital_velocity + 0.5 * accel * time + 0.00833333333333333 * accel + ONE_SIXTH * jerk * time.powf(2.0))
+    time * (inital_velocity
+        + 0.5 * accel * time
+        + 0.00833333333333333 * accel
+        + ONE_SIXTH * jerk * time.powf(2.0))
 }
 
 pub fn delta_distance_iterative(time: f64, mut velocity: f64, mut accel: f64, jerk: f64) -> f64 {
@@ -54,16 +57,25 @@ pub fn predict_intercept(
                 delta_distance(ttt, enm_vel.x, enm_acc.x, enm_jerk.x),
                 delta_distance(ttt, enm_vel.y, enm_acc.y, enm_jerk.y),
             );
-        // intercept = enm_pos
-        //     + vec2(
-        //         delta_distance_iterative(ttt, enm_vel.x, enm_acc.x, enm_jerk.x),
-        //         delta_distance_iterative(ttt, enm_vel.y, enm_acc.y, enm_jerk.y),
-        //     );
         ttt = intercept.length() / blt_spd;
         iterations -= 1;
     }
 
     return intercept;
+}
+
+pub fn get_ttt(distance: f64, velocity: f64, accel: f64, jerk: f64) -> f64 {
+    //displacement = time * (inital_velocity + 0.5 * accel * time + 0.00833333333333333 * accel + ONE_SIXTH * jerk * time.powf(2.0))
+    let squared = (accel.powf(2.0)
+        + 28_000.0 * accel * distance
+        + 240.0 * accel * velocity
+        + 14_400.0 * velocity.powf(2.0));
+
+    let squared_abs = squared.abs();
+
+    let t = (squared_abs.sqrt() - accel - 120.0 * velocity) / 120.0;
+
+    return t * squared.signum();
 }
 
 pub fn get_optimal_arrive_velocity(distance: f64, max_accel: f64, final_velocity: f64) -> f64 {
@@ -76,4 +88,14 @@ pub fn get_optimal_arrive_velocity(distance: f64, max_accel: f64, final_velocity
     let mut vel = vel_sqr.abs().sqrt();
     vel *= vel_sqr.signum();
     return vel;
+}
+
+pub fn get_optimal_arrive_velocity_2(distance: f64, velocity: f64, accel: f64, jerk: f64) -> f64 {
+    //displacement = time * (inital_velocity + 0.5 * accel * time + 0.00833333333333333 * accel + ONE_SIXTH * jerk * time.powf(2.0))
+    let ttt = get_ttt(distance, velocity, accel, jerk);
+    debug!("ttt: {}", ttt);
+    let optimal_velocity = -(1.0 / 120.0) * accel * (60.0 * ttt + 1.0) + (distance / ttt)
+        - (jerk * ttt.powf(2.0)) / 6.0;
+
+    return -optimal_velocity / 3.0;
 }
