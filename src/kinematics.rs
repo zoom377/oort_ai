@@ -16,8 +16,9 @@ v^2 = v0^2 + 2ax
 
 */
 
-pub fn delta_distance(time: f64, inital_velocity: f64, accel: f64) -> f64 {
-    time * (0.5 * accel * time + 0.00833333333333333 * accel + inital_velocity)
+pub fn delta_distance(time: f64, inital_velocity: f64, accel: f64, jerk: f64) -> f64 {
+    const ONE_SIXTH: f64 = 1.0 / 6.0;
+    time * (inital_velocity + 0.5 * accel * time + 0.00833333333333333 * accel + ONE_SIXTH * jerk * time.powf(2.0))
 }
 
 pub fn delta_distance_iterative(time: f64, mut velocity: f64, mut accel: f64, jerk: f64) -> f64 {
@@ -28,13 +29,12 @@ pub fn delta_distance_iterative(time: f64, mut velocity: f64, mut accel: f64, je
     while ticks > 0 {
         velocity += accel * TICK_LENGTH;
         distance += velocity * TICK_LENGTH;
-        accel += jerk * TICK_LENGTH;
+        // accel += jerk * TICK_LENGTH;
         ticks -= 1;
     }
 
     return distance;
 }
-
 
 //Ship frame of reference
 pub fn predict_intercept(
@@ -44,21 +44,21 @@ pub fn predict_intercept(
     enm_jerk: Vec2,
     blt_spd: f64,
 ) -> Vec2 {
-    let mut iterations = 10;
+    let mut iterations = 4;
     let mut intercept = enm_pos;
     let mut ttt = intercept.length() / blt_spd;
 
     while iterations > 0 {
-        // intercept = enm_pos
-        //     + vec2(
-        //         delta_distance(ttt, enm_vel.x, enm_acc.x),
-        //         delta_distance(ttt, enm_vel.y, enm_acc.y),
-        //     );
         intercept = enm_pos
             + vec2(
-                delta_distance_iterative(ttt, enm_vel.x, enm_acc.x, enm_jerk.x),
-                delta_distance_iterative(ttt, enm_vel.y, enm_acc.y, enm_jerk.y),
+                delta_distance(ttt, enm_vel.x, enm_acc.x, enm_jerk.x),
+                delta_distance(ttt, enm_vel.y, enm_acc.y, enm_jerk.y),
             );
+        // intercept = enm_pos
+        //     + vec2(
+        //         delta_distance_iterative(ttt, enm_vel.x, enm_acc.x, enm_jerk.x),
+        //         delta_distance_iterative(ttt, enm_vel.y, enm_acc.y, enm_jerk.y),
+        //     );
         ttt = intercept.length() / blt_spd;
         iterations -= 1;
     }
