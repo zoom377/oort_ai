@@ -93,7 +93,6 @@ pub fn get_optimal_arrive_velocity(distance: f64, max_accel: f64, final_velocity
 pub fn get_optimal_arrive_velocity_2(distance: f64, velocity: f64, accel: f64, jerk: f64) -> f64 {
     //displacement = time * (inital_velocity + 0.5 * accel * time + 0.00833333333333333 * accel + ONE_SIXTH * jerk * time.powf(2.0))
     let ttt = get_ttt(distance, velocity, accel, jerk);
-    debug!("ttt: {}", ttt);
     let optimal_velocity = -(1.0 / 120.0) * accel * (60.0 * ttt + 1.0) + (distance / ttt)
         - (jerk * ttt.powf(2.0)) / 6.0;
 
