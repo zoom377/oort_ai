@@ -47,7 +47,7 @@ pub fn predict_intercept(
     enm_jerk: Vec2,
     blt_spd: f64,
 ) -> Vec2 {
-    let mut iterations = 4;
+    let mut iterations = 10;
     let mut intercept = enm_pos;
     let mut ttt = intercept.length() / blt_spd;
 
