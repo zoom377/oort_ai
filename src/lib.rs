@@ -21,6 +21,7 @@ pub struct Ship {
     target_last_angular_vel: f64,
     target_last_angular_accel: f64,
     target_vel_history: VecDeque<Vec2>,
+    bullets_fired: i32,
     graph1: Graph,
     graph2: Graph,
     graph3: Graph,
@@ -31,26 +32,25 @@ impl Ship {
     pub fn new() -> Ship {
         return Ship {
             graph1: Graph {
-                title: String::from("delta"),
+                title: String::from("ang delta"),
                 position: vec2(-750.0, 500.0),
                 size: vec2(1500.0, 400.0),
-                timespan: 3.0,
                 color: 0xff0000,
                 ..Default::default()
             },
             graph2: Graph {
-                title: String::from("vel delta"),
+                title: String::from("ang vel delta"),
                 position: vec2(-750.0, 0.0),
                 size: vec2(1500.0, 400.0),
-                timespan: 3.0,
+                timespan: 2.0,
                 color: 0x00ffff,
                 ..Default::default()
             },
             graph3: Graph {
-                title: String::from("accel"),
+                title: String::from("ang accel"),
                 position: vec2(-750.0, -500.0),
                 size: vec2(1500.0, 400.0),
-                timespan: 3.0,
+                timespan: 2.0,
                 color: 0x00ff00,
                 ..Default::default()
             },
@@ -58,7 +58,7 @@ impl Ship {
                 title: String::from(""),
                 position: vec2(-750.0, -1000.0),
                 size: vec2(1500.0, 400.0),
-                timespan: 3.0,
+                timespan: 2.0,
                 color: 0xffff00,
                 ..Default::default()
             },
@@ -84,37 +84,35 @@ impl Ship {
         accelerate(bullet_intercept);
         self.track(bullet_intercept_angle);
 
-        if delta_angle.abs() <= TAU / 4.0 && current_tick() > 1 {
+        if angle_diff(heading(), target_delta.angle()).abs() <= TAU / 4.0 && current_tick() > 1 {
             activate_ability(Ability::Boost);
-            debug!("boost");
         }
-        if delta_angle.abs() <= 0.05 {
+
+        let fire_angle_threshold = TAU * 2.0 / bullet_intercept.length();
+        if delta_angle.abs() <= fire_angle_threshold {
             fire(0);
+            self.bullets_fired += 1;
         }
+        debug!("fired: {}", self.bullets_fired);
+
+        draw_line(
+            position(),
+            position() + vec2(1.0, 0.0).rotate(heading()) * bullet_intercept.length(),
+            0x00ff00,
+        );
+        draw_line(
+            position(),
+            position() + bullet_intercept.rotate(-fire_angle_threshold),
+            0xff0000,
+        );
+        draw_line(
+            position(),
+            position() + bullet_intercept.rotate(fire_angle_threshold),
+            0xff0000,
+        );
         draw_diamond(bullet_intercept_world, 50.0, 0xffff00);
         self.target_last_accel = target_accel;
         self.target_last_velocity = target_velocity();
-    }
-
-    fn get_target_average_vel(&self) -> Vec2 {
-        let mut res = vec2(0.0, 0.0);
-        for acc in &self.target_vel_history {
-            res += acc;
-        }
-        res /= self.target_vel_history.len() as f64;
-        return res;
-    }
-
-    fn get_target_average_accel(&self) -> Vec2 {
-        let last_index = self.target_vel_history.len() - 1;
-        return (self.target_vel_history[last_index] - self.target_vel_history[0]) / TICK_LENGTH;
-    }
-
-    fn get_max_acceleration(&self, direction: Vec2) {}
-
-    //Self frame of reference
-    fn intercept(&self, position: Vec2, velocity: Vec2, accel: Vec2, jerk: Vec2) {
-        // let ttt = get_ttt(position.length(), velocity.x, accel);
     }
 
     //Turns ship to track a moving target. Automatically calculates target velocity.
@@ -125,23 +123,21 @@ impl Ship {
 
         let desired_velocity = get_optimal_arrive_velocity(
             angle_delta,
-            max_angular_acceleration() * 1.0,
+            max_angular_acceleration() * 0.97,
             target_angular_velocity,
         );
-        // let ttt = get_ttt(
-        //     angle_delta,
-        //     target_angular_velocity,
-        //     max_angular_acceleration(),
-        //     0.0,
-        // );
-        let mut impulse = desired_velocity - angular_velocity();
-        impulse = impulse.clamp(-max_angular_acceleration(), max_angular_acceleration());
-        torque(impulse / TICK_LENGTH);
+        let mut accel = (desired_velocity - angular_velocity()) / TICK_LENGTH;
+        accel = accel.clamp(-max_angular_acceleration(), max_angular_acceleration());
+        torque(accel);
 
-        self.graph3.add(angle_delta);
+        self.graph1.add(angle_delta);
+        self.graph1.tick();
+
+        self.graph2.add(desired_velocity - angular_velocity());
+        self.graph2.tick();
+
+        self.graph3.add(accel);
         self.graph3.tick();
-        // self.graph4.add(ttt);
-        // self.graph4.tick();
 
         self.target_last_heading = target_heading;
     }
