@@ -88,14 +88,16 @@ impl Ship {
             target_velocity_delta,
             target_accel,
             target_jerk,
-            400.0,
+            350.0,
         );
 
         accelerate(ship_intercept.normalize() * max_forward_acceleration());
         self.track(bullet_intercept_angle);
 
-        if angle_diff(heading(), ship_intercept.angle()).abs() <= TAU / 4.0 && current_tick() > 2 {
+        if angle_diff(heading(), ship_intercept.angle()).abs() <= TAU / 5.0 && current_tick() > 2 {
             activate_ability(Ability::Boost);
+        } else {
+            deactivate_ability(Ability::Boost);
         }
 
         let fire_angle_threshold = TAU * 1.75 / bullet_intercept.length();
@@ -136,9 +138,9 @@ impl Ship {
 
         let desired_velocity = get_optimal_arrive_velocity(
             angle_delta,
-            max_angular_acceleration() * 0.97,
+            max_angular_acceleration(),// * 0.95,
             target_angular_velocity,
-        );
+        ) * 0.9055; 
         let mut accel = (desired_velocity - angular_velocity()) / TICK_LENGTH;
         accel = accel.clamp(-max_angular_acceleration(), max_angular_acceleration());
         torque(accel);
