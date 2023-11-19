@@ -138,9 +138,16 @@ impl Ship {
 
         let desired_velocity = get_optimal_arrive_velocity(
             angle_delta,
-            max_angular_acceleration(),// * 0.95,
+            max_angular_acceleration(),
             target_angular_velocity,
-        ) * 0.9055; 
+        ) * 0.9055;
+        // let desired_velocity = get_optimal_arrive_velocity(
+        //     angle_delta,
+        //     max_angular_acceleration() * 0.95,
+        //     target_angular_velocity,
+        // );
+
+        debug!("{}", f64::EPSILON * 100000000000000.0);
         let mut accel = (desired_velocity - angular_velocity()) / TICK_LENGTH;
         accel = accel.clamp(-max_angular_acceleration(), max_angular_acceleration());
         torque(accel);
