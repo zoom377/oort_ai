@@ -100,7 +100,8 @@ impl Ship {
             deactivate_ability(Ability::Boost);
         }
 
-        let fire_angle_threshold = TAU * 1.75 / bullet_intercept.length();
+        // let fire_angle_threshold = TAU * 1.65 / bullet_intercept.length();
+        let fire_angle_threshold = TAU * 1.65 / bullet_intercept.length();
         if delta_angle.abs() <= fire_angle_threshold {
             fire(0);
             self.bullets_fired += 1;
