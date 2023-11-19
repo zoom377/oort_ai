@@ -77,7 +77,7 @@ impl Default for Graph {
             show_labels: true,
             auto_grow: true,
             auto_shrink: true,
-            smooth_shrink_grow: true,
+            smooth_shrink_grow: false,
             debug: false,
             data: VecDeque::new(),
         }
