@@ -5,17 +5,7 @@ use oort_api::prelude::{
 
 use crate::f64_extensions::F64Ex;
 
-/*
-Equations of motion
-These are only accurate when acceleration is constant over the timespan.
-
-v = v0 + at
-x = t((v + v0) / 2)
-x = v0t + 0.5at^2
-v^2 = v0^2 + 2ax
-
-*/
-
+//Good
 pub fn delta_distance(time: f64, inital_velocity: f64, accel: f64, jerk: f64) -> f64 {
     const ONE_SIXTH: f64 = 1.0 / 6.0;
     time * (inital_velocity
@@ -24,22 +14,7 @@ pub fn delta_distance(time: f64, inital_velocity: f64, accel: f64, jerk: f64) ->
         + ONE_SIXTH * jerk * time.powf(2.0))
 }
 
-pub fn delta_distance_iterative(time: f64, mut velocity: f64, mut accel: f64, jerk: f64) -> f64 {
-    let mut ticks = (time / TICK_LENGTH).round() as i32;
-    // debug!("ticks: {}", ticks);
-    let mut distance = 0.0;
-
-    while ticks > 0 {
-        velocity += accel * TICK_LENGTH;
-        distance += velocity * TICK_LENGTH;
-        // accel += jerk * TICK_LENGTH;
-        ticks -= 1;
-    }
-
-    return distance;
-}
-
-//Ship frame of reference
+//Good
 pub fn predict_intercept(
     enm_pos: Vec2,
     enm_vel: Vec2,
@@ -47,7 +22,7 @@ pub fn predict_intercept(
     enm_jerk: Vec2,
     blt_spd: f64,
 ) -> Vec2 {
-    let mut iterations = 10;
+    let mut iterations = 4;
     let mut intercept = enm_pos;
     let mut ttt = intercept.length() / blt_spd;
 
@@ -67,7 +42,7 @@ pub fn predict_intercept(
 pub fn get_ttt(distance: f64, velocity: f64, accel: f64) -> f64 {
     //displacement = time * (inital_velocity + 0.5 * accel * time + 0.00833333333333333 * accel + ONE_SIXTH * jerk * time.powf(2.0))
     let squared = (accel.powf(2.0)
-        + 28_000.0 * accel * distance
+        + 28_800.0 * accel * distance
         + 240.0 * accel * velocity
         + 14_400.0 * velocity.powf(2.0));
 
@@ -96,5 +71,7 @@ pub fn get_optimal_arrive_velocity_2(distance: f64, velocity: f64, accel: f64, j
     let optimal_velocity = -(1.0 / 120.0) * accel * (60.0 * ttt + 1.0) + (distance / ttt)
         - (jerk * ttt.powf(2.0)) / 6.0;
 
-    return -optimal_velocity / 3.0;
+    debug!("ttt: {}", ttt);
+    debug!("optimal vel: {}", optimal_velocity);
+    return -optimal_velocity / 3.0 ;
 }
