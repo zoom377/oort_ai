@@ -47,7 +47,7 @@ pub fn predict_intercept(
     enm_jerk: Vec2,
     blt_spd: f64,
 ) -> Vec2 {
-    let mut iterations = 2;
+    let mut iterations = 10;
     let mut intercept = enm_pos;
     let mut ttt = intercept.length() / blt_spd;
 
@@ -64,7 +64,7 @@ pub fn predict_intercept(
     return intercept;
 }
 
-pub fn get_ttt(distance: f64, velocity: f64, accel: f64, jerk: f64) -> f64 {
+pub fn get_ttt(distance: f64, velocity: f64, accel: f64) -> f64 {
     //displacement = time * (inital_velocity + 0.5 * accel * time + 0.00833333333333333 * accel + ONE_SIXTH * jerk * time.powf(2.0))
     let squared = (accel.powf(2.0)
         + 28_000.0 * accel * distance
@@ -92,7 +92,7 @@ pub fn get_optimal_arrive_velocity(distance: f64, max_accel: f64, final_velocity
 
 pub fn get_optimal_arrive_velocity_2(distance: f64, velocity: f64, accel: f64, jerk: f64) -> f64 {
     //displacement = time * (inital_velocity + 0.5 * accel * time + 0.00833333333333333 * accel + ONE_SIXTH * jerk * time.powf(2.0))
-    let ttt = get_ttt(distance, velocity, accel, jerk);
+    let ttt = get_ttt(distance, velocity, accel);
     let optimal_velocity = -(1.0 / 120.0) * accel * (60.0 * ttt + 1.0) + (distance / ttt)
         - (jerk * ttt.powf(2.0)) / 6.0;
 

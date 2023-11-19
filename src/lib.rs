@@ -70,34 +70,23 @@ impl Ship {
 
     pub fn tick(&mut self) {
         let target_delta = target() - position();
+        // let target_velocity_delta = target_velocity() - velocity();
         let target_velocity_delta = target_velocity() - velocity();
 
         self.target_vel_history.push_back(target_velocity_delta);
         if self.target_vel_history.len() > 2 {
             self.target_vel_history.pop_front();
         }
-        debug!("len: {}", self.target_vel_history.len());
 
         let target_accel = self.get_target_average_accel();
-        // let new_accel = (target_velocity() - self.target_last_velocity) / TICK_LENGTH;
-        // let target_accel = vec2(
-        //     F64Ex::lerp(0.5, self.target_last_accel.x, new_accel.x),
-        //     F64Ex::lerp(0.5, self.target_last_accel.y, new_accel.y),
-        // );
-
         let target_jerk = (target_accel - self.target_last_accel) / TICK_LENGTH;
-        // let new_jerk = (target_accel - self.target_last_accel) / TICK_LENGTH;
-        // let target_jerk = vec2(
-        //     F64Ex::lerp(0.5, self.target_last_jerk.x, new_jerk.x),
-        //     F64Ex::lerp(0.5, self.target_last_jerk.y, new_jerk.y),
-        // );
 
         let bullet_intercept = predict_intercept(
             target_delta,
             self.get_target_average_vel(),
             target_accel,
-            // vec2(0.0, 0.0),
-            target_jerk,
+            vec2(0.0, 0.0),
+            // target_jerk,
             BULLET_SPEED,
         );
 
@@ -105,7 +94,7 @@ impl Ship {
 
         //velocity = change in position over change in time
         let target_angular_vel =
-            angle_diff(bullet_intercept.angle(), self.target_last_heading) / TICK_LENGTH;
+            -angle_diff(bullet_intercept.angle(), self.target_last_heading) / TICK_LENGTH;
 
         let target_angular_accel =
             (target_angular_vel - self.target_last_angular_vel) / TICK_LENGTH;
@@ -114,24 +103,18 @@ impl Ship {
             (target_angular_accel - self.target_last_angular_accel) / TICK_LENGTH;
 
         self.track(bullet_intercept.angle(), target_angular_vel);
-        accelerate(bullet_intercept.normalize() * max_forward_acceleration());
+        // accelerate(bullet_intercept.normalize() * max_forward_acceleration());
 
         if angle_diff(heading(), (target() - position()).angle()) <= TAU / 4.0 {
-            activate_ability(Ability::Boost);
+            // activate_ability(Ability::Boost);
         }
 
-        let fire_angle_threshold = TAU * 2.0 / bullet_intercept.length();
+        let fire_angle_threshold = TAU * 1.25 / bullet_intercept.length();
         let target_delta_angle = angle_diff(heading(), bullet_intercept.angle());
         if target_delta_angle.abs() <= fire_angle_threshold {
             fire(0);
         }
 
-        // self.intercept(
-        //     position() + bullet_intercept,
-        //     target_velocity_delta,
-        //     target_accel,
-        //     target_jerk,
-        // );
         //DEBUG
         {
             self.graph1.add(self.get_target_average_vel().length());
@@ -139,10 +122,6 @@ impl Ship {
 
             self.graph2.add(self.get_target_average_accel().length());
             self.graph2.tick();
-
-            self.graph3
-                .add(angle_diff(heading(), bullet_intercept.angle()));
-            self.graph3.tick();
 
             draw_line(
                 position(),
@@ -159,7 +138,7 @@ impl Ship {
         }
 
         //Record state for next frame
-        // self.target_last_velocity = target_velocity();
+        self.target_last_velocity = target_velocity();
         self.target_last_accel = target_accel;
         self.target_last_jerk = target_jerk;
 
@@ -179,14 +158,14 @@ impl Ship {
 
     fn get_target_average_accel(&self) -> Vec2 {
         let last_index = self.target_vel_history.len() - 1;
-        return self.target_vel_history[last_index] - self.target_vel_history[0];
+        return (self.target_vel_history[last_index] - self.target_vel_history[0]) / TICK_LENGTH;
     }
 
     fn get_max_acceleration(&self, direction: Vec2) {}
 
     //Self frame of reference
-    fn intercept(&mut self, position: Vec2, velocity: Vec2, accel: Vec2, jerk: Vec2) {
-        
+    fn intercept(&self, position: Vec2, velocity: Vec2, accel: Vec2, jerk: Vec2) {
+        // let ttt = get_ttt(position.length(), velocity.x, accel);
     }
 
     //Turns ship to track a moving target. Automatically calculates target velocity.
@@ -196,16 +175,26 @@ impl Ship {
 
         let optimal_angular_velocity = get_optimal_arrive_velocity_2(
             angle_delta,
-            target_angular_velocity,
+            // target_angular_velocity,
+            0.0,
             max_angular_acceleration(),
             0.0,
         );
 
-        let accel = (optimal_angular_velocity - angular_velocity())
+        let accel = ((optimal_angular_velocity - angular_velocity()) / TICK_LENGTH)
             .clamp(-max_angular_acceleration(), max_angular_acceleration());
 
-        torque(accel / TICK_LENGTH);
+        // let vel_delta = optimal_angular_velocity - angular_velocity();
+        // let accel = max_angular_acceleration() * vel_delta.signum();
 
+        torque(accel);
+
+        self.graph3.add(angle_delta);
+        self.graph3.tick();
+
+        // self.graph4
+        //     .add(target_angular_velocity - angular_velocity());
+        // self.graph4.tick();
         self.graph4.add(accel);
         self.graph4.tick();
     }
