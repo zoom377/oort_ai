@@ -67,6 +67,7 @@ impl Ship {
     }
 
     pub fn tick(&mut self) {
+        debug!("tick: {}", current_tick());
         let target_delta = target() - position();
         let target_velocity_delta = target_velocity() - velocity();
         let target_accel = (target_velocity() - self.target_last_velocity) / TICK_LENGTH;
@@ -78,17 +79,26 @@ impl Ship {
             target_jerk,
             BULLET_SPEED * 0.97,
         );
-        let bullet_intercept_world = position() + bullet_intercept;
+
         let bullet_intercept_angle = bullet_intercept.angle();
         let delta_angle = angle_diff(heading(), bullet_intercept_angle);
-        accelerate(bullet_intercept);
+
+        let ship_intercept = predict_intercept(
+            target_delta,
+            target_velocity_delta,
+            target_accel,
+            target_jerk,
+            400.0,
+        );
+
+        accelerate(ship_intercept.normalize() * max_forward_acceleration());
         self.track(bullet_intercept_angle);
 
-        if angle_diff(heading(), target_delta.angle()).abs() <= TAU / 4.0 && current_tick() > 1 {
+        if angle_diff(heading(), ship_intercept.angle()).abs() <= TAU / 4.0 && current_tick() > 2 {
             activate_ability(Ability::Boost);
         }
 
-        let fire_angle_threshold = TAU * 2.0 / bullet_intercept.length();
+        let fire_angle_threshold = TAU * 1.75 / bullet_intercept.length();
         if delta_angle.abs() <= fire_angle_threshold {
             fire(0);
             self.bullets_fired += 1;
@@ -110,10 +120,13 @@ impl Ship {
             position() + bullet_intercept.rotate(fire_angle_threshold),
             0xff0000,
         );
-        draw_diamond(bullet_intercept_world, 50.0, 0xffff00);
+        draw_diamond(position() + bullet_intercept, 50.0, 0xff0000);
+        draw_diamond(position() + ship_intercept, 50.0, 0x00ff00);
         self.target_last_accel = target_accel;
         self.target_last_velocity = target_velocity();
     }
+
+    // fn intercept(&self, pos: Vec2, vel: Vec2, )
 
     //Turns ship to track a moving target. Automatically calculates target velocity.
     //Self frame of reference

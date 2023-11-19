@@ -20,11 +20,11 @@ pub fn predict_intercept(
     enm_vel: Vec2,
     enm_acc: Vec2,
     enm_jerk: Vec2,
-    blt_spd: f64,
+    spd: f64,
 ) -> Vec2 {
     let mut iterations = 4;
     let mut intercept = enm_pos;
-    let mut ttt = intercept.length() / blt_spd;
+    let mut ttt = intercept.length() / spd;
 
     while iterations > 0 {
         intercept = enm_pos
@@ -32,7 +32,7 @@ pub fn predict_intercept(
                 delta_distance(ttt, enm_vel.x, enm_acc.x, enm_jerk.x),
                 delta_distance(ttt, enm_vel.y, enm_acc.y, enm_jerk.y),
             );
-        ttt = intercept.length() / blt_spd;
+        ttt = intercept.length() / spd;
         iterations -= 1;
     }
 
