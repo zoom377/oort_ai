@@ -1,10 +1,11 @@
 use oort_api::prelude::*;
 
-use super::{ai::AI, deflection::deflection::Deflection};
+use crate::ais::deflection::Deflection;
+use crate::ais::ai::AI;
 
-pub fn get_ai_for_scenario() -> &'static dyn AI {
+pub fn get_ai_for_scenario() -> Box<dyn AI> {
     return match scenario_name() {
-        "deflection" => &Deflection {},
-        &_ => &Deflection {},
+        "deflection" => Box::new(Deflection::new()),
+        &_ => Box::new(Deflection::new()),
     };
 }
