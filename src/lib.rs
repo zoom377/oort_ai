@@ -2,13 +2,12 @@ pub mod f64_extensions;
 pub mod graphing;
 pub mod kinematics;
 pub mod vec_extensions;
+pub mod ais;
 
-use std::{collections::VecDeque, num::ParseIntError, f64::NAN};
-
-use f64_extensions::F64Ex;
 use graphing::graphing::Graph;
 use kinematics::*;
 use oort_api::prelude::*;
+use std::collections::VecDeque;
 
 const BULLET_SPEED: f64 = 1000.0; // m/s
 
