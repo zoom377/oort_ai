@@ -1,28 +1,18 @@
 use std::{any::type_name, collections::VecDeque};
 
-// use crate::{
-//     ais::ai::*,
-//     graphing::graphing::*,
-//     kinematics::*,
-//     constants::*
-// };
-
-// use crate::ais::ai::*;
 use super::ai::AI;
 use crate::constants::*;
 use crate::graphing::graphing::*;
 use crate::kinematics::*;
 use oort_api::prelude::*;
 
+const GRAPH_TIMESPAN:f64 = 3.0;
+
 #[derive(Default)]
 pub struct Deflection {
     target_last_velocity: Vec2,
     target_last_accel: Vec2,
-    target_last_jerk: Vec2,
     target_last_heading: f64,
-    target_last_angular_vel: f64,
-    target_last_angular_accel: f64,
-    target_vel_history: VecDeque<Vec2>,
     bullets_fired: i32,
     graph1: Graph,
     graph2: Graph,
@@ -42,7 +32,7 @@ impl Deflection {
                 min: f64::from(-1.0).to_radians(),
                 auto_grow: false,
                 auto_shrink: false,
-                timespan: 1.0,
+                timespan: GRAPH_TIMESPAN,
                 color: 0xff0000,
                 ..Default::default()
             },
@@ -50,7 +40,7 @@ impl Deflection {
                 title: String::from("ang vel delta"),
                 position: vec2(-750.0, 0.0),
                 size: vec2(1500.0, 400.0),
-                timespan: 1.0,
+                timespan: GRAPH_TIMESPAN,
                 color: 0x00ffff,
                 ..Default::default()
             },
@@ -58,7 +48,7 @@ impl Deflection {
                 title: String::from("ang accel"),
                 position: vec2(-750.0, -500.0),
                 size: vec2(1500.0, 400.0),
-                timespan: 1.0,
+                timespan: GRAPH_TIMESPAN,
                 color: 0x00ff00,
                 ..Default::default()
             },
@@ -66,7 +56,7 @@ impl Deflection {
                 title: String::from("opt vel"),
                 position: vec2(-750.0, -1000.0),
                 size: vec2(1500.0, 400.0),
-                timespan: 1.0,
+                timespan: GRAPH_TIMESPAN,
                 color: 0xff8800,
                 ..Default::default()
             },
@@ -74,7 +64,7 @@ impl Deflection {
                 title: String::from(""),
                 position: vec2(-750.0, -1000.0),
                 size: vec2(1500.0, 400.0),
-                timespan: 1.0,
+                timespan: GRAPH_TIMESPAN,
                 color: 0xff00ff,
                 ..Default::default()
             },
