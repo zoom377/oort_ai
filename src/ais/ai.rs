@@ -1,4 +1,3 @@
-
-pub trait AI{
-    fn tick();
+pub trait AI {
+    fn tick(&mut self);
 }
