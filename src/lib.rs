@@ -3,7 +3,7 @@ pub mod graphing;
 pub mod kinematics;
 pub mod vec_extensions;
 
-use std::{collections::VecDeque, num::ParseIntError};
+use std::{collections::VecDeque, num::ParseIntError, f64::NAN};
 
 use f64_extensions::F64Ex;
 use graphing::graphing::Graph;
@@ -26,6 +26,7 @@ pub struct Ship {
     graph2: Graph,
     graph3: Graph,
     graph4: Graph,
+    graph5: Graph,
 }
 
 impl Ship {
@@ -60,11 +61,19 @@ impl Ship {
                 ..Default::default()
             },
             graph4: Graph {
-                title: String::from("ang des vel"),
+                title: String::from("opt vel"),
                 position: vec2(-750.0, -1000.0),
                 size: vec2(1500.0, 400.0),
                 timespan: 1.0,
-                color: 0xffff00,
+                color: 0xff8800,
+                ..Default::default()
+            },
+            graph5: Graph {
+                title: String::from(""),
+                position: vec2(-750.0, -1000.0),
+                size: vec2(1500.0, 400.0),
+                timespan: 1.0,
+                color: 0xff00ff,
                 ..Default::default()
             },
             ..Default::default()
@@ -152,27 +161,46 @@ impl Ship {
             angle_delta,
             max_angular_acceleration(),
             target_angular_velocity,
-            // 0.0
         );
+
+        let max_accel = max_angular_acceleration() * -angle_delta.signum();
+        // let max_accel = max_angular_acceleration();
 
         let mut accel = (desired_velocity - angular_velocity()) / TICK_LENGTH;
         accel = accel.clamp(-max_angular_acceleration(), max_angular_acceleration());
         torque(accel);
 
-        debug!("accel: {}", accel);
-        debug!("max accel: {}", max_angular_acceleration());
+        let ttt = get_ttt(
+            angle_delta,
+            target_angular_velocity - angular_velocity(),
+            max_accel,
+        );
 
-        self.graph1.add(angle_delta);
+        let ttt2 = get_ttt_2(
+            angle_delta,
+            target_angular_velocity - angular_velocity(),
+            max_accel,
+        );
+
+        let opt_vel = get_optimal_arrival_velocity_v3(angle_delta, ttt, max_angular_acceleration());
+
+        debug!("accel: {}", accel);
+        debug!("max accel: {}", max_accel);
+
+        self.graph1.add(f64::NAN);
         self.graph1.tick();
 
-        self.graph2.add(desired_velocity - angular_velocity());
+        self.graph2.add(accel);
         self.graph2.tick();
 
         self.graph3.add(accel);
         self.graph3.tick();
 
-        self.graph4.add(desired_velocity);
+        self.graph4.add(opt_vel);
         self.graph4.tick();
+
+        // self.graph5.add();
+        // self.graph5.tick();
 
         self.target_last_heading = target_heading;
     }

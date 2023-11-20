@@ -220,27 +220,24 @@ impl Graph {
             self.normalised_to_world_pos(vec2(0.0, 1.0)),
             0xffffff,
         );
-
-        draw_line(
-            self.normalised_to_world_pos(vec2(0.0, 0.0)),
-            self.normalised_to_world_pos(vec2(1.0, 0.0)),
-            0xffffff,
-        );
-
+        
         //Draw zero line
-        if self.min < 0.0 && self.max > 0.0 {
-            draw_line(
-                self.get_datum_world_position(&Datum {
-                    value: 0.0,
-                    tick: self.get_start_tick(),
-                }),
-                self.get_datum_world_position(&Datum {
-                    value: 0.0,
-                    tick: current_tick() as i32,
-                }),
-                0xcccccc,
-            );
+        let zero_line_height = f64::from(0.0).clamp(self.min, self.max);
+        let mut zero_line_colour = 0xffff00;
+        if 0.0 > self.min && 0.0 < self.max {
+            zero_line_colour = 0xffffff;
         }
+        draw_line(
+            self.get_datum_world_position(&Datum {
+                value: zero_line_height,
+                tick: self.get_start_tick(),
+            }),
+            self.get_datum_world_position(&Datum {
+                value: zero_line_height,
+                tick: current_tick() as i32,
+            }),
+            zero_line_colour,
+        );
     }
 
     fn shrink_grow(&mut self) {
