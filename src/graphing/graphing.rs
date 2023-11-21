@@ -189,7 +189,7 @@ impl Graph {
             draw_text!(
                 self.normalised_to_world_pos(vec2(0.0, 0.0)),
                 self.color,
-                "{:.2}",
+                "{}",
                 self.min
             );
 
@@ -197,7 +197,7 @@ impl Graph {
                 draw_text!(
                     self.normalised_to_world_pos(vec2(0.0, 1.0)),
                     self.color,
-                    "{:.2}",
+                    "{}",
                     self.max
                 );
             }

@@ -11,6 +11,39 @@ pub fn delta_distance(time: f64, inital_velocity: f64, accel: f64, jerk: f64) ->
         + ONE_SIXTH * jerk * time.powf(2.0))
 }
 
+pub fn delta_distance_2(time:f64, initial_velocity: f64, accel: f64, jerk: f64) -> f64{
+    const ONE_SIXTH: f64 = 1.0 / 6.0;
+    time * (accel * (0.5 * time + 0.00833333) + initial_velocity)
+}
+
+// pub fn delta_distance_3(time:f64, initial_velocity: f64, accel: f64, jerk: f64) -> f64{
+//     const ONE_SIXTH: f64 = 1.0 / 6.0;
+//     //dx = vt
+//     //dv = at
+//     //da = jt
+//     //x = 0.5at^2 + v0t
+//     //x = 0.5at^2 + v0t + 0.00833at
+// }
+
+//authoritative function, should work as game physics simulation does
+pub fn delta_distance_iterative(
+    mut ticks: i32,
+    mut velocity: f64,
+    mut accel: f64,
+    jerk: f64,
+) -> f64 {
+    let mut distance = 0.0;
+
+    while ticks > 0 {
+        velocity += accel * TICK_LENGTH;
+        distance += velocity * TICK_LENGTH;
+        accel += jerk * TICK_LENGTH;
+        ticks -= 1;
+    }
+
+    return distance;
+}
+
 //Good
 pub fn predict_intercept(
     enm_pos: Vec2,

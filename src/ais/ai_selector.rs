@@ -1,11 +1,13 @@
 use oort_api::prelude::*;
 
-use crate::ais::deflection::Deflection;
 use crate::ais::ai::AI;
+use crate::ais::deflection::Deflection;
 
-pub fn get_class_ai(class: Class) -> Box<dyn AI>{
+use super::kinematics_test::KinematicsTest;
+
+pub fn get_class_ai(class: Class) -> Box<dyn AI> {
     match class {
-        Class::Fighter => Box::new(Deflection::new()),
+        Class::Fighter => Box::new(KinematicsTest::new()),
         Class::Frigate => Box::new(Deflection::new()),
         Class::Cruiser => Box::new(Deflection::new()),
         Class::Asteroid => Box::new(Deflection::new()),
@@ -13,9 +15,9 @@ pub fn get_class_ai(class: Class) -> Box<dyn AI>{
         Class::Missile => Box::new(Deflection::new()),
         Class::Torpedo => Box::new(Deflection::new()),
         Class::Unknown => Box::new(Deflection::new()),
+        _ => Box::new(Deflection::new()),
     }
 }
-
 
 //future possibility: match ai against class AND scenario
 

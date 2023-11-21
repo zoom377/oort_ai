@@ -6,7 +6,10 @@ use crate::graphing::graphing::*;
 use crate::kinematics::*;
 use oort_api::prelude::*;
 
-const GRAPH_TIMESPAN:f64 = 3.0;
+const GRAPH_TIMESPAN: f64 = 3.0;
+const GRAPH_WIDTH: f64 = 2000.0;
+const GRAPH_HEIGHT: f64 = 400.0;
+const GRAPH_X: f64 = -GRAPH_WIDTH / 2.0;
 
 #[derive(Default)]
 pub struct Deflection {
@@ -26,8 +29,8 @@ impl Deflection {
         return Deflection {
             graph1: Graph {
                 title: String::from("ang delta"),
-                position: vec2(-750.0, 500.0),
-                size: vec2(1500.0, 400.0),
+                position: vec2(GRAPH_X, 500.0),
+                size: vec2(GRAPH_WIDTH, GRAPH_HEIGHT),
                 max: f64::from(1.0).to_radians(),
                 min: f64::from(-1.0).to_radians(),
                 auto_grow: false,
@@ -38,32 +41,32 @@ impl Deflection {
             },
             graph2: Graph {
                 title: String::from("ang vel delta"),
-                position: vec2(-750.0, 0.0),
-                size: vec2(1500.0, 400.0),
+                position: vec2(GRAPH_X, 0.0),
+                size: vec2(GRAPH_WIDTH, GRAPH_HEIGHT),
                 timespan: GRAPH_TIMESPAN,
                 color: 0x00ffff,
                 ..Default::default()
             },
             graph3: Graph {
                 title: String::from("ang accel"),
-                position: vec2(-750.0, -500.0),
-                size: vec2(1500.0, 400.0),
+                position: vec2(GRAPH_X, -500.0),
+                size: vec2(GRAPH_WIDTH, GRAPH_HEIGHT),
                 timespan: GRAPH_TIMESPAN,
                 color: 0x00ff00,
                 ..Default::default()
             },
             graph4: Graph {
                 title: String::from("opt vel"),
-                position: vec2(-750.0, -1000.0),
-                size: vec2(1500.0, 400.0),
+                position: vec2(GRAPH_X, -1000.0),
+                size: vec2(GRAPH_WIDTH, GRAPH_HEIGHT),
                 timespan: GRAPH_TIMESPAN,
                 color: 0xff8800,
                 ..Default::default()
             },
             graph5: Graph {
                 title: String::from(""),
-                position: vec2(-750.0, -1000.0),
-                size: vec2(1500.0, 400.0),
+                position: vec2(GRAPH_X, -1000.0),
+                size: vec2(GRAPH_WIDTH, GRAPH_HEIGHT),
                 timespan: GRAPH_TIMESPAN,
                 color: 0xff00ff,
                 ..Default::default()
